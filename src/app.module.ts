@@ -4,8 +4,9 @@ import { EntriesModule } from './entries/entries.module';
 import { ChatModule } from './chat/chat.module';
 import { HabitMemoryModule } from './habit-memory/habit-memory.module';
 
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { DomainExceptionFilter } from './common/presentation/filters/domain-exception.filter';
+import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
 
 @Module({
   imports: [
@@ -18,6 +19,10 @@ import { DomainExceptionFilter } from './common/presentation/filters/domain-exce
     {
       provide: APP_FILTER,
       useClass: DomainExceptionFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: FirebaseAuthGuard,
     },
   ],
 })

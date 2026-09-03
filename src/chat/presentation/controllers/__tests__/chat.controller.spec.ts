@@ -4,10 +4,6 @@ import { ChatService } from '../../../services/chat.service';
 import { SendMessageDto } from '../../dto/send-message.dto';
 import { ConfirmDraftDto } from '../../dto/confirm-draft.dto';
 
-jest.mock('firebase-admin/auth', () => ({
-  getAuth: jest.fn(),
-}));
-
 describe('ChatController', () => {
   let controller: ChatController;
   let service: jest.Mocked<ChatService>;

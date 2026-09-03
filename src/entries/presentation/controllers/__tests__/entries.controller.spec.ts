@@ -3,10 +3,6 @@ import { EntriesController } from '../entries.controller';
 import { EntryService } from '../../../services/entry.service';
 import { CreateEntryDto } from '../../dto/create-entry.dto';
 
-jest.mock('firebase-admin/auth', () => ({
-  getAuth: jest.fn(),
-}));
-
 describe('EntriesController', () => {
   let controller: EntriesController;
   let service: jest.Mocked<EntryService>;

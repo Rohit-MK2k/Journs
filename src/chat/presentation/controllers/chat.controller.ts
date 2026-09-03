@@ -1,11 +1,9 @@
-import { Controller, Post, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Req } from '@nestjs/common';
 import { ChatService } from '../../services/chat.service';
 import { SendMessageDto } from '../dto/send-message.dto';
 import { ConfirmDraftDto } from '../dto/confirm-draft.dto';
-import { FirebaseAuthGuard } from '../../../common/guards/firebase-auth.guard';
 
 @Controller('chat')
-@UseGuards(FirebaseAuthGuard)
 export class ChatController {
   constructor(private readonly chatService: ChatService) {}
 
