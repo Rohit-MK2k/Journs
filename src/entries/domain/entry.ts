@@ -1,4 +1,4 @@
-import { Attachment } from './attachment';
+import { Attachment, CreateAttachmentInput } from './attachment';
 
 /** A single journal entry, tied to one calendar day per user. */
 export interface Entry {
@@ -12,3 +12,8 @@ export interface Entry {
   createdAt: Date;
   updatedAt: Date;
 }
+
+/** Input type for creating a new journal entry. */
+export type CreateEntryInput = Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'attachments'> & {
+  attachments: CreateAttachmentInput[];
+};

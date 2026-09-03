@@ -7,8 +7,7 @@ export class AttachmentDto {
   type: 'voice' | 'photo' | 'location';
 
   @IsString()
-  @IsOptional()
-  url?: string;
+  url: string;
 
   @IsString()
   @IsOptional()

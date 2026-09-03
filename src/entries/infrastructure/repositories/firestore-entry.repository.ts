@@ -1,14 +1,30 @@
 import { EntryRepository } from '../../interfaces/entry-repository.interface';
-import { Entry } from '../../domain/entry';
+import { Entry, CreateEntryInput } from '../../domain/entry';
 import { getFirestore } from 'firebase-admin/firestore';
+import { randomUUID } from 'crypto';
 
 export class FirestoreEntryRepository implements EntryRepository {
   private getDb() {
     return getFirestore();
   }
 
-  async save(uid: string, entry: Entry): Promise<Entry> {
-    const docRef = this.getDb().collection(`users/${uid}/entries`).doc(entry.id);
+  async save(uid: string, input: CreateEntryInput): Promise<Entry> {
+    const docRef = this.getDb().collection(`users/${uid}/entries`).doc();
+    const now = new Date();
+    
+    const entry: Entry = {
+      ...input,
+      id: docRef.id,
+      createdAt: now,
+      updatedAt: now,
+      attachments: input.attachments.map(att => ({
+        ...att,
+        id: randomUUID(),
+        entryId: docRef.id,
+        createdAt: now,
+      })),
+    };
+    
     await docRef.set(entry);
     return entry;
   }

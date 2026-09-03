@@ -1,4 +1,4 @@
-import { Entry } from '../domain/entry';
+import { Entry, CreateEntryInput } from '../domain/entry';
 import { Attachment } from '../domain/attachment';
 
 /** Abstract contract for journal entry persistence operations. */
@@ -6,7 +6,7 @@ export interface EntryRepository {
   /** Persist a new entry. Implementation assigns id, createdAt, updatedAt. */
   save(
     uid: string,
-    entry: Omit<Entry, 'id' | 'createdAt' | 'updatedAt'>,
+    entry: CreateEntryInput,
   ): Promise<Entry>;
 
   /** Apply partial updates to an existing entry. */

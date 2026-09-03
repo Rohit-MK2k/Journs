@@ -13,3 +13,6 @@ export interface Attachment {
   locationLabel?: string;
   createdAt: Date;
 }
+
+/** Input type for creating a new attachment. */
+export type CreateAttachmentInput = Omit<Attachment, 'id' | 'entryId' | 'createdAt'>;

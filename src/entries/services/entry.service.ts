@@ -1,4 +1,4 @@
-import { Entry, EntrySummary, Attachment } from '../domain';
+import { Entry, EntrySummary, Attachment, CreateAttachmentInput } from '../domain';
 import { EntryRepository, VectorSearchProvider } from '../interfaces';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
 
@@ -21,7 +21,7 @@ export class EntryService {
   async createEntry(
     uid: string,
     text: string,
-    attachments: Attachment[] = [],
+    attachments: CreateAttachmentInput[] = [],
   ): Promise<Entry> {
     if (!uid.trim()) {
       throw new Error('uid must not be empty');
