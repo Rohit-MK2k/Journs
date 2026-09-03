@@ -3,6 +3,7 @@ import { HabitMemory } from '../domain';
 import { HabitMemoryStore } from '../interfaces/habit-memory-store.interface';
 import { Entry, EntryRepository } from '../../entries';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
+import { ValidationError } from '../../common/errors';
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
@@ -112,12 +113,12 @@ describe('HabitMemoryService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.refreshMemory(''))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when uid is whitespace only', async () => {
       await expect(service.refreshMemory('   '))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should look back 30 days for recent entries', async () => {

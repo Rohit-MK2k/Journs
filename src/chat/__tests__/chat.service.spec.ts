@@ -3,6 +3,7 @@ import { EntryDraft, ChatResponse } from '../domain';
 import { Entry, EntryRepository } from '../../entries';
 import { HabitMemory, HabitMemoryStore } from '../../habit-memory';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
+import { ValidationError, ConflictError } from '../../common/errors';
 
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
@@ -89,7 +90,7 @@ describe('ChatService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.startSession(''))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should generate a unique session ID', async () => {
@@ -150,29 +151,29 @@ describe('ChatService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.sendMessage('', 'hello', 'text'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when message is empty', async () => {
       await expect(service.sendMessage('user-1', '', 'text'))
-        .rejects.toThrow('Message must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when message is whitespace only', async () => {
       await expect(service.sendMessage('user-1', '   ', 'text'))
-        .rejects.toThrow('Message must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when mode is invalid', async () => {
       await expect(
         service.sendMessage('user-1', 'hello', 'invalid' as 'text'),
-      ).rejects.toThrow("Invalid chat mode: invalid. Must be 'text' or 'voice'");
+      ).rejects.toThrow(ValidationError);
     });
 
     it('should throw when no active session exists', async () => {
       // user-2 never started a session
       await expect(service.sendMessage('user-2', 'hello', 'text'))
-        .rejects.toThrow('No active chat session. Call startSession first');
+        .rejects.toThrow(ConflictError);
     });
   });
 
@@ -194,17 +195,17 @@ describe('ChatService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.draftEntryFromContext('', 'context'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when context is empty', async () => {
       await expect(service.draftEntryFromContext('user-1', ''))
-        .rejects.toThrow('Context must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when context is whitespace only', async () => {
       await expect(service.draftEntryFromContext('user-1', '   '))
-        .rejects.toThrow('Context must not be empty');
+        .rejects.toThrow(ValidationError);
     });
   });
 
@@ -258,19 +259,19 @@ describe('ChatService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.confirmDraftSave('', draft, 'new'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when draft text is empty', async () => {
       const emptyDraft: EntryDraft = { text: '', sourceContext: 'context' };
       await expect(service.confirmDraftSave('user-1', emptyDraft, 'new'))
-        .rejects.toThrow('Draft text must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when draft text is whitespace only', async () => {
       const blankDraft: EntryDraft = { text: '   ', sourceContext: 'context' };
       await expect(service.confirmDraftSave('user-1', blankDraft, 'new'))
-        .rejects.toThrow('Draft text must not be empty');
+        .rejects.toThrow(ValidationError);
     });
   });
 });

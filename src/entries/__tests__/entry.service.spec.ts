@@ -3,7 +3,7 @@ import { Entry, Attachment } from '../domain';
 import { EntryRepository } from '../interfaces/entry-repository.interface';
 import { VectorSearchProvider } from '../interfaces/vector-search-provider.interface';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
-
+import { ValidationError, ConflictError, NotFoundError } from '../../common/errors';
 function makeEntry(overrides: Partial<Entry> = {}): Entry {
   return {
     id: 'entry-1',
@@ -74,22 +74,22 @@ describe('EntryService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.createEntry('', 'some text'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when uid is whitespace only', async () => {
       await expect(service.createEntry('   ', 'some text'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when text is empty', async () => {
       await expect(service.createEntry('user-1', ''))
-        .rejects.toThrow('Entry text must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when text is whitespace only', async () => {
       await expect(service.createEntry('user-1', '   '))
-        .rejects.toThrow('Entry text must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should default attachments to empty array', async () => {
@@ -125,7 +125,7 @@ describe('EntryService', () => {
       repo.findByDate.mockResolvedValue(makeEntry());
 
       await expect(service.createEntry('user-1', 'new text'))
-        .rejects.toThrow('An entry for today already exists');
+        .rejects.toThrow(ConflictError);
     });
 
     it('should trigger vector indexing asynchronously', async () => {
@@ -180,22 +180,22 @@ describe('EntryService', () => {
       repo.findById.mockResolvedValue(null);
 
       await expect(service.editEntry('user-1', 'nope', 'text'))
-        .rejects.toThrow('Entry not found: nope');
+        .rejects.toThrow(NotFoundError);
     });
 
     it('should throw when uid is empty', async () => {
       await expect(service.editEntry('', 'entry-1', 'text'))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when entryId is empty', async () => {
       await expect(service.editEntry('user-1', '', 'text'))
-        .rejects.toThrow('entryId must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should throw when text is empty', async () => {
       await expect(service.editEntry('user-1', 'entry-1', ''))
-        .rejects.toThrow('Entry text must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should trigger re-indexing asynchronously', async () => {
@@ -235,7 +235,7 @@ describe('EntryService', () => {
 
     it('should throw when uid is empty', async () => {
       await expect(service.getTimeline(''))
-        .rejects.toThrow('uid must not be empty');
+        .rejects.toThrow(ValidationError);
     });
 
     it('should return empty array when no entries exist', async () => {
