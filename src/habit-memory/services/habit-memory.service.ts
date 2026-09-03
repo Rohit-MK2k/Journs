@@ -2,6 +2,7 @@ import { HabitMemory } from '../domain';
 import { HabitMemoryStore } from '../interfaces';
 import { EntryRepository } from '../../entries';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
+import { ValidationError } from '../../common/errors';
 
 const LOOKBACK_DAYS = 30;
 
@@ -26,7 +27,7 @@ export class HabitMemoryService {
    */
   async refreshMemory(uid: string): Promise<HabitMemory> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
 
     const since = new Date();
@@ -61,3 +62,4 @@ export class HabitMemoryService {
     return memory;
   }
 }
+

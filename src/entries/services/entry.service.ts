@@ -1,6 +1,7 @@
 import { Entry, EntrySummary, Attachment, CreateAttachmentInput } from '../domain';
 import { EntryRepository, VectorSearchProvider } from '../interfaces';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
+import { ValidationError, ConflictError, NotFoundError } from '../../common/errors';
 
 /**
  * Business logic for journal entry creation, editing, and timeline retrieval.
@@ -24,17 +25,17 @@ export class EntryService {
     attachments: CreateAttachmentInput[] = [],
   ): Promise<Entry> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
     if (!text.trim()) {
-      throw new Error('Entry text must not be empty');
+      throw new ValidationError('Entry text must not be empty');
     }
 
     const today = this.startOfDay(new Date());
 
     const existing = await this.repo.findByDate(uid, today);
     if (existing) {
-      throw new Error('An entry for today already exists');
+      throw new ConflictError('An entry for today already exists');
     }
 
     const saved = await this.repo.save(uid, {
@@ -58,18 +59,18 @@ export class EntryService {
    */
   async editEntry(uid: string, entryId: string, text: string): Promise<Entry> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
     if (!entryId.trim()) {
-      throw new Error('entryId must not be empty');
+      throw new ValidationError('entryId must not be empty');
     }
     if (!text.trim()) {
-      throw new Error('Entry text must not be empty');
+      throw new ValidationError('Entry text must not be empty');
     }
 
     const existing = await this.repo.findById(uid, entryId);
     if (!existing) {
-      throw new Error(`Entry not found: ${entryId}`);
+      throw new NotFoundError(`Entry not found: ${entryId}`);
     }
 
     const updated = await this.repo.update(uid, entryId, {
@@ -89,7 +90,7 @@ export class EntryService {
    */
   async getTimeline(uid: string): Promise<EntrySummary[]> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
 
     const entries = await this.repo.listByUser(uid);
@@ -131,3 +132,4 @@ export class EntryService {
       });
   }
 }
+

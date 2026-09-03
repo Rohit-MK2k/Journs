@@ -8,6 +8,7 @@ import {
 import { Entry, EntryRepository } from '../../entries';
 import { HabitMemory, HabitMemoryStore } from '../../habit-memory';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
+import { ValidationError, ConflictError } from '../../common/errors';
 
 const VALID_MODES: ChatMessageMode[] = ['text', 'voice'];
 
@@ -34,7 +35,7 @@ export class ChatService {
    */
   async startSession(uid: string): Promise<ChatSession> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
 
     const habitMemory: HabitMemory = (await this.habitStore.get(uid)) ?? {
@@ -67,18 +68,18 @@ export class ChatService {
     mode: ChatMessageMode,
   ): Promise<ChatResponse> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
     if (!message.trim()) {
-      throw new Error('Message must not be empty');
+      throw new ValidationError('Message must not be empty');
     }
     if (!VALID_MODES.includes(mode)) {
-      throw new Error(`Invalid chat mode: ${mode}. Must be 'text' or 'voice'`);
+      throw new ValidationError(`Invalid chat mode: ${mode}. Must be 'text' or 'voice'`);
     }
 
     const session = this.sessions.get(uid);
     if (!session) {
-      throw new Error('No active chat session. Call startSession first');
+      throw new ConflictError('No active chat session. Call startSession first');
     }
 
     return this.aiProvider.chat(session, message);
@@ -93,10 +94,10 @@ export class ChatService {
     context: string,
   ): Promise<EntryDraft> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
     if (!context.trim()) {
-      throw new Error('Context must not be empty');
+      throw new ValidationError('Context must not be empty');
     }
 
     return this.aiProvider.extractContext(context);
@@ -116,10 +117,10 @@ export class ChatService {
     target: DraftSaveTarget,
   ): Promise<Entry> {
     if (!uid.trim()) {
-      throw new Error('uid must not be empty');
+      throw new ValidationError('uid must not be empty');
     }
     if (!draft.text.trim()) {
-      throw new Error('Draft text must not be empty');
+      throw new ValidationError('Draft text must not be empty');
     }
 
     const today = this.startOfDay(new Date());
@@ -150,3 +151,4 @@ export class ChatService {
     return d;
   }
 }
+
