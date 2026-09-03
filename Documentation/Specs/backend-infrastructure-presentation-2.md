@@ -1,4 +1,4 @@
-# Backend Infrastructure & Presentation — Task 3
+# Backend Infrastructure & Presentation — Task 2
 
 **Date:** 2026-09-03
 **Scope:** Implement an Exception Filter to map Domain Errors to HTTP Status Codes
