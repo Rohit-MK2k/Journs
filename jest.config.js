@@ -10,4 +10,7 @@ module.exports = {
     '!src/**/*.spec.ts',
     '!src/**/index.ts',
   ],
+  transformIgnorePatterns: [
+    'node_modules/(?!@nestjs|@firebase|firebase-admin|jose|jwks-rsa)'
+  ],
 };
