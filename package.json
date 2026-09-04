@@ -5,6 +5,8 @@
   "description": "Journaling application - business logic layer",
   "scripts": {
     "build": "tsc",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -19,6 +21,8 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@google-cloud/aiplatform": "^7.3.0",
+    "@google/genai": "^2.21.0",
     "@nestjs/common": "^10.4.15",
     "@nestjs/core": "^10.4.15",
     "@nestjs/schedule": "^4.1.2",

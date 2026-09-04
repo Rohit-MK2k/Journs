@@ -2,3 +2,9 @@ node_modules/
 dist/
 coverage/
 *.js.map
+.env
+*.env
+service-account*.json
+*-firebase-adminsdk-*.json
+*.pem
+*.key
