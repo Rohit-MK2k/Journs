@@ -3,15 +3,15 @@ import { ChatResponse, ChatSession, EntryDraft } from '../../../chat/domain';
 import { HabitMemory } from '../../../habit-memory/domain';
 import { Entry } from '../../../entries/domain';
 import { GoogleGenAI } from '@google/genai';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, Injectable } from '@nestjs/common';
 
+@Injectable()
 export class GeminiAIProvider implements AIProvider {
-  private readonly ai: GoogleGenAI;
   private readonly logger = new Logger(GeminiAIProvider.name);
 
-  constructor() {
-    this.ai = new GoogleGenAI({ vertexai: !!process.env.GCP_PROJECT_ID });
-  }
+  constructor(
+    @Inject('GENAI_CLIENT') private readonly ai: GoogleGenAI,
+  ) {}
 
   async summarize(text: string): Promise<string> {
     const response = await this.ai.models.generateContent({

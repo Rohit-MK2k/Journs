@@ -2,20 +2,15 @@ import { GeminiAIProvider } from '../gemini-ai.provider';
 import { ChatSession } from '../../../../chat/domain';
 
 const mockGenerateContent = jest.fn().mockResolvedValue({ text: 'mocked response' });
-
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: {
-      generateContent: mockGenerateContent,
-    },
-  })),
-}));
+const mockGenAiClient = {
+  models: { generateContent: mockGenerateContent }
+} as any;
 
 describe('GeminiAIProvider', () => {
   let provider: GeminiAIProvider;
 
   beforeEach(() => {
-    provider = new GeminiAIProvider();
+    provider = new GeminiAIProvider(mockGenAiClient);
   });
 
   afterEach(() => {

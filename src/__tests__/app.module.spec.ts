@@ -17,7 +17,14 @@ describe('AppModule', () => {
   it('should compile the module and resolve dependencies', async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider('GENAI_CLIENT')
+      .useValue({})
+      .overrideProvider('VERTEX_INDEX_CLIENT')
+      .useValue({})
+      .overrideProvider('VERTEX_MATCH_CLIENT')
+      .useValue({})
+      .compile();
 
     expect(module).toBeDefined();
     

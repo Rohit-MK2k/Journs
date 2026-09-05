@@ -2,33 +2,22 @@ import { VectorSearchProvider } from '../../interfaces/vector-search-provider.in
 import { Entry } from '../../domain';
 import { GoogleGenAI } from '@google/genai';
 import { v1 } from '@google-cloud/aiplatform';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, Injectable } from '@nestjs/common';
 
-const { IndexServiceClient, MatchServiceClient } = v1;
-
+@Injectable()
 export class VertexAIVectorSearchProvider implements VectorSearchProvider {
-  private readonly ai: GoogleGenAI;
-  private readonly indexClient: v1.IndexServiceClient;
-  private readonly matchClient: v1.MatchServiceClient;
   private readonly logger = new Logger(VertexAIVectorSearchProvider.name);
 
   private readonly projectId = process.env.GCP_PROJECT_ID!;
   private readonly location = process.env.GCP_REGION || 'us-central1';
   private readonly indexId = process.env.VERTEX_INDEX_ID!;
   private readonly endpointId = process.env.VERTEX_INDEX_ENDPOINT_ID!;
-  private readonly publicDomain = process.env.VERTEX_PUBLIC_DOMAIN!;
 
-  constructor() {
-    this.ai = new GoogleGenAI({ vertexai: true });
-
-    this.indexClient = new IndexServiceClient({
-      apiEndpoint: `${this.location}-aiplatform.googleapis.com`,
-    });
-
-    this.matchClient = new MatchServiceClient({
-      apiEndpoint: this.publicDomain || `${this.location}-aiplatform.googleapis.com`,
-    });
-  }
+  constructor(
+    @Inject('GENAI_CLIENT') private readonly ai: GoogleGenAI,
+    @Inject('VERTEX_INDEX_CLIENT') private readonly indexClient: v1.IndexServiceClient,
+    @Inject('VERTEX_MATCH_CLIENT') private readonly matchClient: v1.MatchServiceClient,
+  ) {}
 
   async indexEntry(uid: string, entry: Entry): Promise<void> {
     try {

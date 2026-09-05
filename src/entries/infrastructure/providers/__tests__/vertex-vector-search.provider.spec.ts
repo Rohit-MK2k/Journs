@@ -1,12 +1,8 @@
 import { VertexAIVectorSearchProvider } from '../vertex-vector-search.provider';
 
-jest.mock('@google/genai', () => ({
-  GoogleGenAI: jest.fn().mockImplementation(() => ({
-    models: {
-      embedContent: jest.fn().mockResolvedValue({ embeddings: [{ values: [0.1, 0.2, 0.3] }] }),
-    },
-  })),
-}));
+const mockGenAiClient = {
+  models: { embedContent: jest.fn().mockResolvedValue({ embeddings: [{ values: [0.1, 0.2, 0.3] }] }) }
+} as any;
 
 const mockUpsert = jest.fn().mockResolvedValue([]);
 const mockRemove = jest.fn().mockResolvedValue([]);
@@ -14,19 +10,16 @@ const mockFind = jest.fn().mockResolvedValue([{
   nearestNeighbors: [{ neighbors: [{ datapoint: { datapointId: 'entry-123' } }] }]
 }]);
 
-jest.mock('@google-cloud/aiplatform', () => ({
-  v1: {
-    IndexServiceClient: jest.fn().mockImplementation(() => ({
-      indexPath: jest.fn().mockReturnValue('index-path'),
-      upsertDatapoints: mockUpsert,
-      removeDatapoints: mockRemove,
-    })),
-    MatchServiceClient: jest.fn().mockImplementation(() => ({
-      indexEndpointPath: jest.fn().mockReturnValue('endpoint-path'),
-      findNeighbors: mockFind,
-    })),
-  },
-}));
+const mockIndexClient = {
+  indexPath: jest.fn().mockReturnValue('index-path'),
+  upsertDatapoints: mockUpsert,
+  removeDatapoints: mockRemove,
+} as any;
+
+const mockMatchClient = {
+  indexEndpointPath: jest.fn().mockReturnValue('endpoint-path'),
+  findNeighbors: mockFind,
+} as any;
 
 describe('VertexAIVectorSearchProvider', () => {
   let provider: VertexAIVectorSearchProvider;
@@ -37,7 +30,7 @@ describe('VertexAIVectorSearchProvider', () => {
     process.env.VERTEX_INDEX_ENDPOINT_ID = 'endpoint-123';
     process.env.VERTEX_PUBLIC_DOMAIN = 'domain.com';
 
-    provider = new VertexAIVectorSearchProvider();
+    provider = new VertexAIVectorSearchProvider(mockGenAiClient, mockIndexClient, mockMatchClient);
   });
 
   afterEach(() => {
