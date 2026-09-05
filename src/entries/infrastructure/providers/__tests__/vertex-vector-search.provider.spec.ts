@@ -54,7 +54,7 @@ describe('VertexAIVectorSearchProvider', () => {
   it('should return matching entry ids on semantic search', async () => {
     const results = await provider.semanticSearch('user-1', 'query');
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('entry-123');
+    expect(results[0].entry.id).toBe('entry-123');
     expect(mockFind).toHaveBeenCalled();
   });
 });

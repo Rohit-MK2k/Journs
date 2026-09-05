@@ -54,6 +54,21 @@ export class EntryService {
   }
 
   /**
+   * Autosave: Upserts the journal entry for today.
+   * Tolerates debounced rapid writes.
+   */
+  async autosaveEntry(uid: string, text: string): Promise<Entry> {
+    const today = this.startOfDay(new Date());
+    const existing = await this.repo.findByDate(uid, today);
+
+    if (existing) {
+      return this.editEntry(uid, existing.id, text);
+    } else {
+      return this.createEntry(uid, text, []);
+    }
+  }
+
+  /**
    * Edit the text of an existing entry.
    * Triggers async re-indexing in the vector store.
    */
@@ -85,6 +100,35 @@ export class EntryService {
   }
 
   /**
+   * Autosave an entry's text.
+   * Utilizes a last-write-wins concurrency strategy based on client timestamp.
+   * If the stored entry has a newer client timestamp, the autosave is rejected.
+   */
+  async autosave(uid: string, entryId: string, text: string, clientTimestamp: Date): Promise<Entry> {
+    if (!uid.trim()) {
+      throw new ValidationError('uid must not be empty');
+    }
+    if (!entryId.trim()) {
+      throw new ValidationError('entryId must not be empty');
+    }
+
+    const existing = await this.repo.findById(uid, entryId);
+    if (!existing) {
+      throw new NotFoundError(`Entry not found: ${entryId}`);
+    }
+
+    // Simple optimistic concurrency control (last-write-wins)
+    if (existing.lastAutosaveAt && clientTimestamp < existing.lastAutosaveAt) {
+      throw new ConflictError('A newer version of this entry has already been autosaved.');
+    }
+
+    return this.repo.update(uid, entryId, {
+      text,
+      lastAutosaveAt: clientTimestamp,
+      vectorIndexed: false, // Invalidate search index so it can be re-indexed later
+    });
+  }
+  /**
    * Build the timeline: all entries for a user, each with an AI summary,
    * sorted newest-first.
    */
@@ -101,7 +145,14 @@ export class EntryService {
     const summaries: EntrySummary[] = await Promise.all(
       entries.map(async (entry) => {
         const preview = await this.aiProvider.summarize(entry.text);
-        return { id: entry.id, date: entry.date, preview };
+        const wordCount = entry.text.split(/\s+/).filter(w => w.length > 0).length;
+        return { 
+          id: entry.id, 
+          date: entry.date, 
+          preview,
+          wordCount,
+          hasAttachments: entry.attachments.length > 0
+        };
       }),
     );
 

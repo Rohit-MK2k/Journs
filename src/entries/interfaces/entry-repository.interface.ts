@@ -13,7 +13,7 @@ export interface EntryRepository {
   update(
     uid: string,
     entryId: string,
-    updates: Partial<Pick<Entry, 'text' | 'attachments' | 'vectorIndexed'>>,
+    updates: Partial<Pick<Entry, 'text' | 'attachments' | 'vectorIndexed' | 'lastAutosaveAt'>>,
   ): Promise<Entry>;
 
   /** Find a single entry by its ID. Returns null if not found. */
@@ -30,4 +30,7 @@ export interface EntryRepository {
 
   /** Permanently delete an entry. */
   delete(uid: string, entryId: string): Promise<void>;
+
+  /** Permanently delete all entries for a user (cascading deletion). */
+  deleteAll(uid: string): Promise<void>;
 }

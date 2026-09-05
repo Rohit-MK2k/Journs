@@ -19,4 +19,7 @@ export interface AIProvider {
   deriveHabitMemory(
     entries: Entry[],
   ): Promise<Omit<HabitMemory, 'uid' | 'updatedAt'>>;
+
+  /** Extract 2-3 key phrases from a document that relate to a user's search query. */
+  extractSemanticChips(query: string, documentText: string): Promise<string[]>;
 }

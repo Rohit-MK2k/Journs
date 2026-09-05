@@ -33,6 +33,7 @@ describe('EntryService', () => {
       listByUser: jest.fn(),
       listRecent: jest.fn(),
       delete: jest.fn(),
+      deleteAll: jest.fn(),
     };
 
     aiProvider = {
@@ -40,11 +41,13 @@ describe('EntryService', () => {
       chat: jest.fn(),
       extractContext: jest.fn(),
       deriveHabitMemory: jest.fn(),
+      extractSemanticChips: jest.fn(),
     };
 
     vectorSearch = {
       indexEntry: jest.fn().mockResolvedValue(undefined),
       removeEntry: jest.fn().mockResolvedValue(undefined),
+      removeAll: jest.fn().mockResolvedValue(undefined),
       semanticSearch: jest.fn(),
     };
 
@@ -158,6 +161,62 @@ describe('EntryService', () => {
     });
   });
 
+  // --- autosave ---
+
+  describe('autosave', () => {
+    const ts = new Date('2026-09-02T10:05:00');
+
+    it('should update entry with lastAutosaveAt timestamp', async () => {
+      const existing = makeEntry();
+      const updated = makeEntry({ text: 'Updated text', lastAutosaveAt: ts });
+      repo.findById.mockResolvedValue(existing);
+      repo.update.mockResolvedValue(updated);
+
+      const result = await service.autosave('user-1', 'entry-1', 'Updated text', ts);
+
+      expect(result).toEqual(updated);
+      expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', {
+        text: 'Updated text',
+        lastAutosaveAt: ts,
+        vectorIndexed: false,
+      });
+    });
+
+    it('should throw ConflictError if client timestamp is older than last autosave', async () => {
+      const existing = makeEntry({ lastAutosaveAt: new Date('2026-09-02T10:10:00') }); // Newer
+      repo.findById.mockResolvedValue(existing);
+
+      await expect(service.autosave('user-1', 'entry-1', 'Old text', ts))
+        .rejects.toThrow(ConflictError);
+    });
+
+    it('should proceed if client timestamp is newer than last autosave', async () => {
+      const existing = makeEntry({ lastAutosaveAt: new Date('2026-09-02T10:00:00') }); // Older
+      repo.findById.mockResolvedValue(existing);
+      repo.update.mockResolvedValue(existing);
+
+      await service.autosave('user-1', 'entry-1', 'Newer text', ts);
+      expect(repo.update).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundError if entry does not exist', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.autosave('user-1', 'nope', 'text', ts))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw ValidationError if uid is empty', async () => {
+      await expect(service.autosave('', 'entry-1', 'text', ts))
+        .rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError if entryId is empty', async () => {
+      await expect(service.autosave('user-1', '', 'text', ts))
+        .rejects.toThrow(ValidationError);
+    });
+  });
+
   // --- editEntry ---
 
   describe('editEntry', () => {
@@ -228,8 +287,8 @@ describe('EntryService', () => {
       const result = await service.getTimeline('user-1');
 
       expect(result).toEqual([
-        { id: 'e-2', date: new Date('2026-09-02'), preview: 'Summary of Day 2' },
-        { id: 'e-1', date: new Date('2026-09-01'), preview: 'Summary of Day 1' },
+        { id: 'e-2', date: new Date('2026-09-02'), preview: 'Summary of Day 2', wordCount: 2, hasAttachments: false },
+        { id: 'e-1', date: new Date('2026-09-01'), preview: 'Summary of Day 1', wordCount: 2, hasAttachments: false },
       ]);
     });
 

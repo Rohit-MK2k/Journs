@@ -45,6 +45,7 @@ describe('ChatService', () => {
       listByUser: jest.fn(),
       listRecent: jest.fn(),
       delete: jest.fn(),
+      deleteAll: jest.fn(),
     };
 
     habitStore = {
@@ -57,6 +58,7 @@ describe('ChatService', () => {
       chat: jest.fn(),
       extractContext: jest.fn(),
       deriveHabitMemory: jest.fn(),
+      extractSemanticChips: jest.fn(),
     };
 
     service = new ChatService(repo, habitStore, aiProvider);

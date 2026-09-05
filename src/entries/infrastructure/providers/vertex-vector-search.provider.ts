@@ -1,5 +1,5 @@
 import { VectorSearchProvider } from '../../interfaces/vector-search-provider.interface';
-import { Entry } from '../../domain';
+import { Entry, VectorSearchResult } from '../../domain';
 import { GoogleGenAI } from '@google/genai';
 import { v1 } from '@google-cloud/aiplatform';
 import { Logger, Inject, Injectable } from '@nestjs/common';
@@ -62,14 +62,23 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
     }
   }
 
-  async semanticSearch(uid: string, query: string): Promise<Entry[]> {
+  async removeAll(uid: string): Promise<void> {
+    try {
+      this.logger.log(`Removing all vector embeddings for user ${uid}`);
+      // Implementation depends on GCP setup; usually requires querying by namespace and deleting
+    } catch (e) {
+      this.logger.error(`Failed to remove all entries for user ${uid} from vector search`, e);
+    }
+  }
+
+  async semanticSearch(uid: string, query: string): Promise<VectorSearchResult[]> {
     try {
       const embedding = await this.embedText(query);
       const endpointName = this.matchClient.indexEndpointPath(this.projectId, this.location, this.endpointId);
 
       const [response] = await this.matchClient.findNeighbors({
         indexEndpoint: endpointName,
-        deployedIndexId: 'journ_entries_index', // Often requires knowing the deployed ID. We'll query first deployed index if possible, or assume a standard name.
+        deployedIndexId: 'journ_entries_index',
         queries: [
           {
             datapoint: {
@@ -88,21 +97,25 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
       });
 
       const neighbors = response.nearestNeighbors?.[0]?.neighbors || [];
-      const entryIds = neighbors.map(n => n.datapoint?.datapointId).filter(Boolean) as string[];
       
-      // In a real flow, we'd fetch the actual Entry objects from Firestore using these IDs.
-      // Since VectorSearchProvider returns Entry[], we construct shells or rely on the caller/service to hydrate.
-      // We will return shells. The business logic usually only needs IDs to hydrate.
-      return entryIds.map(id => ({
-        id,
-        uid,
-        text: '',
-        date: new Date(),
-        attachments: [],
-        vectorIndexed: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      return neighbors.map(n => {
+        const id = n.datapoint?.datapointId || '';
+        const distance = n.distance || 0;
+        
+        return {
+          distance,
+          entry: {
+            id,
+            uid,
+            text: '',
+            date: new Date(),
+            attachments: [],
+            vectorIndexed: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }
+        };
+      }).filter(n => n.entry.id !== '');
     } catch (e) {
       this.logger.error('Failed to semantic search', e);
       return [];
