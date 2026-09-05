@@ -59,6 +59,8 @@ describe('HabitMemoryService', () => {
       extractContext: jest.fn(),
       deriveHabitMemory: jest.fn(),
       extractSemanticChips: jest.fn(),
+      generateSummary: jest.fn(),
+      processChatTurn: jest.fn(),
     };
 
     service = new HabitMemoryService(repo, habitStore, aiProvider);

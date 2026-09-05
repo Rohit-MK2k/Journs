@@ -13,7 +13,7 @@ export interface EntryRepository {
   update(
     uid: string,
     entryId: string,
-    updates: Partial<Pick<Entry, 'text' | 'attachments' | 'vectorIndexed' | 'lastAutosaveAt'>>,
+    updates: Partial<Pick<Entry, 'text' | 'attachments' | 'vectorIndexed' | 'lastAutosaveAt' | 'summary'>>,
   ): Promise<Entry>;
 
   /** Find a single entry by its ID. Returns null if not found. */
