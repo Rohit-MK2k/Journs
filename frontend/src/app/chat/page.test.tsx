@@ -17,9 +17,9 @@ describe('AI Companion Suite', () => {
   });
 
   it('T3.2 Draft Editing Transition & T3.3 Draft Destination Logic', async () => {
-    // Inject a draft via mock API
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
+      headers: { get: () => null },
       json: async () => ({ replyText: 'Here is a draft.', extractedDraft: 'This is the new extracted draft.' })
     });
     
@@ -75,6 +75,7 @@ describe('AI Companion Suite', () => {
       await act(async () => {
         resolvePromise({
           ok: true,
+          headers: { get: () => null },
           json: async () => ({ replyText: 'Hi' })
         });
       });
@@ -83,6 +84,7 @@ describe('AI Companion Suite', () => {
     it('T9.2 should append the user message and real AI response to the chat view upon a successful API call', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
+        headers: { get: () => null },
         json: async () => ({ replyText: 'I am your AI companion.' })
       });
       
@@ -103,6 +105,7 @@ describe('AI Companion Suite', () => {
     it('T9.3 should render the Draft Confirmation Card if the API returns an extractedDraft string', async () => {
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
+        headers: { get: () => null },
         json: async () => ({ replyText: 'Here is a draft.', extractedDraft: 'This is the new extracted draft.' })
       });
       
@@ -118,6 +121,47 @@ describe('AI Companion Suite', () => {
       
       expect(await screen.findByText('Drafted Journal Note')).toBeInTheDocument();
       expect(screen.getByText('This is the new extracted draft.')).toBeInTheDocument();
+    });
+
+    it('T9.4 Chat Stream Rendering should incrementally append chunks to the chat bubble', async () => {
+      // Mock TextDecoder in JSDOM environment
+      (global as any).TextDecoder = class { decode(arr: any) { return Buffer.from(arr).toString('utf-8'); } };
+
+      let readCount = 0;
+      const chunks = [
+        'data: {"replyText": "Hello "}\n\n',
+        'data: {"replyText": "World!"}\n\n',
+        'data: [DONE]\n\n'
+      ];
+      
+      const mockReader = {
+        read: jest.fn().mockImplementation(() => {
+          if (readCount < chunks.length) {
+            const val = chunks[readCount++];
+            return Promise.resolve({ done: false, value: Buffer.from(val, 'utf-8') });
+          }
+          return Promise.resolve({ done: true });
+        })
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        headers: { get: (n: string) => n.toLowerCase() === 'content-type' ? 'text/event-stream' : null },
+        body: { getReader: () => mockReader }
+      });
+      
+      render(<ChatCompanion />);
+      const input = screen.getByPlaceholderText('Reflect with Journ...');
+      
+      fireEvent.change(input, { target: { value: 'Stream test' } });
+      const sendBtn = input.parentElement?.querySelector('button:last-child');
+      
+      await act(async () => {
+        fireEvent.click(sendBtn!);
+      });
+      
+      expect(await screen.findByText('Hello World!')).toBeInTheDocument();
+      expect(mockReader.read).toHaveBeenCalledTimes(4); // 3 chunks + 1 done
     });
   });
 });

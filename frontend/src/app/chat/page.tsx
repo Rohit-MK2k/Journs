@@ -30,20 +30,63 @@ export default function ChatCompanion() {
         method: 'POST',
         body: JSON.stringify({ message: userMsg.text })
       });
-      const data = await res.json();
       
-      const assistantMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        text: data.replyText,
-        extractedDraft: data.extractedDraft
-      };
+      const contentType = res.headers.get('content-type') || '';
       
-      if (data.extractedDraft) {
-        setDraftContent(data.extractedDraft);
+      if (contentType.includes('text/event-stream')) {
+        setIsLoading(false); // Stop typing indicator
+        
+        const assistantMsgId = (Date.now() + 1).toString();
+        setMessages(prev => [...prev, { id: assistantMsgId, role: 'assistant', text: '' }]);
+        
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder();
+        let currentText = '';
+        
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const dataStr = line.trim().slice(6);
+                if (dataStr === '[DONE]') continue;
+                
+                try {
+                  const data = JSON.parse(dataStr);
+                  if (data.replyText) {
+                    currentText += data.replyText;
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, text: currentText } : m));
+                  }
+                  if (data.extractedDraft) {
+                    setDraftContent(data.extractedDraft);
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, extractedDraft: data.extractedDraft } : m));
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+        }
+      } else {
+        const data = await res.json();
+        
+        const assistantMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          text: data.replyText,
+          extractedDraft: data.extractedDraft
+        };
+        
+        if (data.extractedDraft) {
+          setDraftContent(data.extractedDraft);
+        }
+        
+        setMessages(prev => [...prev, assistantMsg]);
       }
-      
-      setMessages(prev => [...prev, assistantMsg]);
     } catch (error) {
       // In a real app, handle error visibly
       console.error("Failed to send message", error);
