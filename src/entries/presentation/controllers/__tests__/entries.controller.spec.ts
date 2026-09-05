@@ -69,4 +69,37 @@ describe('EntriesController', () => {
       expect(res).toEqual({ id: 'e1' });
     });
   });
+
+  describe('generateSummary', () => {
+    it('should call generateAndSaveSummary', async () => {
+      service.generateAndSaveSummary = jest.fn().mockResolvedValue(undefined);
+      const res = await controller.generateSummary({ user: { uid: 'u1' } }, 'e1');
+      expect(service.generateAndSaveSummary).toHaveBeenCalledWith('u1', 'e1');
+      expect(res.success).toBe(true);
+    });
+  });
+
+  describe('attachments', () => {
+    it('should generate upload url', async () => {
+      const mockStorage = { generateUploadUrl: jest.fn().mockResolvedValue({ uploadUrl: 'http://url' }) };
+      const res = await controller.generateUploadUrl({ user: { uid: 'u1' } }, 'image/png', 'png', mockStorage as any);
+      expect(mockStorage.generateUploadUrl).toHaveBeenCalledWith('u1', 'image/png', 'png');
+      expect(res.uploadUrl).toBe('http://url');
+    });
+
+    it('should add attachment', async () => {
+      service.addAttachment = jest.fn().mockResolvedValue({ id: 'a1' });
+      const dto = { type: 'photo' as const };
+      const res = await controller.addAttachment({ user: { uid: 'u1' } }, 'e1', dto);
+      expect(service.addAttachment).toHaveBeenCalledWith('u1', 'e1', dto);
+      expect(res).toEqual({ id: 'a1' });
+    });
+
+    it('should remove attachment', async () => {
+      service.removeAttachment = jest.fn().mockResolvedValue(undefined);
+      const res = await controller.removeAttachment({ user: { uid: 'u1' } }, 'e1', 'a1');
+      expect(service.removeAttachment).toHaveBeenCalledWith('u1', 'e1', 'a1');
+      expect(res.success).toBe(true);
+    });
+  });
 });

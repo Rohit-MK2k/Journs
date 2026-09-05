@@ -4,6 +4,8 @@ import { VertexAIVectorSearchProvider } from '../entries/infrastructure/provider
 import { GoogleGenAI } from '@google/genai';
 import { v1 } from '@google-cloud/aiplatform';
 
+import { FirebaseStorageProvider } from './infrastructure/providers/firebase-storage.provider';
+
 @Global()
 @Module({
   providers: [
@@ -38,7 +40,11 @@ import { v1 } from '@google-cloud/aiplatform';
       provide: 'VectorSearchProvider',
       useClass: VertexAIVectorSearchProvider,
     },
+    {
+      provide: 'StorageProvider',
+      useClass: FirebaseStorageProvider,
+    },
   ],
-  exports: ['AIProvider', 'VectorSearchProvider', 'GENAI_CLIENT', 'VERTEX_INDEX_CLIENT', 'VERTEX_MATCH_CLIENT'],
+  exports: ['AIProvider', 'VectorSearchProvider', 'GENAI_CLIENT', 'VERTEX_INDEX_CLIENT', 'VERTEX_MATCH_CLIENT', 'StorageProvider'],
 })
 export class CommonModule {}
