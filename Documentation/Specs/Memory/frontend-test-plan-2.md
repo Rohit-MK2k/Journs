@@ -1,29 +1,30 @@
-# Memory: Frontend Test Plan 2 (Integration Phase)
+# Frontend Test Plan 2 (Integration Phase) - Memory
 
-## What was done:
-- **Test Implementation (TDD Phase)**:
-  - Translated the test requirements from `frontend-test-plan-2.md` into functional Jest/RTL test code.
-  - Since the actual integration code (API calls, Auth providers) is not fully implemented yet, dummy structural files were created (`src/lib/apiClient.ts` and `src/components/AuthGuard.tsx`) to allow the tests to compile and run according to pure TDD methodology.
-  
-- **Test Suites Created & Updated**:
-  1. **Suite 6: API Client & Authorization (`src/lib/apiClient.test.ts`)**: 
-     - Fully implemented. Mocks the global `fetch` API and `firebase/auth`.
-     - Tests `T6.1` by asserting that the `apiClient` successfully retrieves the Firebase ID Token and injects it into the `Authorization: Bearer <token>` header.
-     - Tests `T6.2` by rejecting requests with an unauthorized error before hitting the network if no user is found.
-  2. **Suite 7: Protected Routes & Auth Guards (`src/components/AuthGuard.test.tsx`)**:
-     - Fully implemented. Mocks `next/navigation`.
-     - Tests `T7.1` by simulating an unauthenticated state and asserting that `router.push('/login')` is executed immediately.
-     - Tests `T7.2` by providing a mocked user and asserting that the protected child components render cleanly without triggering redirects.
-  3. **Suite 8: Network Error Handling & Fallbacks (`src/app/page.test.tsx`)**:
-     - Added to the existing Dashboard test file.
-     - Implemented `T8.1` which mocks a global fetch `500 Internal Server Error` during the autosave lifecycle to set up future assertions for the "Sync Failed" visual states.
-     - Scaffolded `T8.2` for future SWR retry assertions.
-  4. **Suite 9: Streaming Response UI (`src/app/chat/page.test.tsx`)**:
-     - Added to the existing Chat test file.
-     - Scaffolded `T9.1` which triggers a chat submission to setup the future assertion of incremental Server-Sent Event (SSE) stream rendering.
+## Implementations Completed
 
-## Next.js Context:
-- The tests rely heavily on dependency injection / mocking for Firebase and network internals, ensuring that once the Next.js components are wired up to the real data layer, the tests will successfully validate the contracts without hitting live endpoints.
+### 1. Suite 6: API Client & Authorization
+- **Location**: `frontend/src/lib/apiClient.test.ts`
+- **T6.1 Token Injection**: Successfully implemented tests to mount the API wrapper and verify that `getIdToken()` is called, injecting the `Authorization: Bearer <token>` into headers.
+- **T6.2 Unauthenticated Rejection**: Successfully implemented tests to simulate unauthenticated states and confirm the API wrapper aborts and throws an error prior to execution.
 
-## Status:
-- Completed. The integration tests have been written and attached to the project. The test suite is now prepared to validate the frontend-backend integration phase.
+### 2. Suite 7: Protected Routes & Auth Guards
+- **Location**: `frontend/src/components/AuthGuard.test.tsx`
+- **T7.1 Unauthenticated Redirect**: Implemented a mock for `firebase/auth` yielding `null` for `currentUser` to verify Next.js router transitions the client to `/login`.
+- **T7.2 Authenticated Access**: Covered by injecting a valid user into the mock and validating that child components render without router redirects.
+
+### 3. Suite 8: Network Error Handling & Fallbacks
+- **Location**: `frontend/src/app/page.test.tsx` (and `page.tsx`)
+- **T8.1 Autosave Network Failure**: Refactored the dashboard tests to intercept the `POST /api/entries/autosave` call with a forced error simulation. Validated the fallback of saving state to `"Sync Failed"`.
+- **T8.2 Data Fetch Retry Logic**: 
+  - *Implementation Change*: Introduced `useSWR` in `MainDashboard` to properly fetch recent entries from `/api/entries` instead of the static mockup array `MOCK_PAST_ENTRIES`. Added a skeleton loader UI (`entries-skeleton`) for the loading state, and an error state (`entries-error`).
+  - *Test*: Created a mock that throws a transient failure, verifying the SWR component renders the skeleton loader, then successfully resolves to the re-fetched data.
+
+### 4. Suite 9: Streaming Response UI
+- **Location**: `frontend/src/app/chat/page.test.tsx` (and `chat/page.tsx`)
+- **T9.4 Chat Stream Rendering (SSE)**: 
+  - *Implementation Change*: Integrated `ReadableStream` logic with `TextDecoder` inside `chat/page.tsx`'s `handleSend` function. It now properly consumes `text/event-stream` chunks, parsing SSE `data:` payloads and incrementally appending chunks to the `assistantMsg` state.
+  - *Test*: Created a mock readable stream (`getReader()`) mimicking an SSE API response with chunked emission (`"Hello "`, `"World!"`, `"[DONE]"`). Validated that the UI renders the assembled text correctly without crashing.
+
+## Global Fixes
+- Addressed `jsdom` missing globals by providing lightweight mocks (`TextDecoder`) or standard objects for browser-native stream APIs during testing.
+- Overhauled `page.test.tsx` to handle cross-test `SWRConfig` caching isolation to prevent DOM pollution during testing.
