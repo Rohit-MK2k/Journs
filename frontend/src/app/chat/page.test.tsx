@@ -16,11 +16,24 @@ describe('AI Companion Suite', () => {
     expect(screen.getByText('Companion is listening...')).toBeInTheDocument();
   });
 
-  it('T3.2 Draft Editing Transition & T3.3 Draft Destination Logic', () => {
+  it('T3.2 Draft Editing Transition & T3.3 Draft Destination Logic', async () => {
+    // Inject a draft via mock API
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ replyText: 'Here is a draft.', extractedDraft: 'This is the new extracted draft.' })
+    });
+    
     render(<ChatCompanion />);
     
+    const input = screen.getByPlaceholderText('Reflect with Journ...');
+    fireEvent.change(input, { target: { value: 'Trigger draft' } });
+    
+    await act(async () => {
+      fireEvent.click(input.parentElement?.querySelector('button:last-child')!);
+    });
+
     // Click edit
-    const editBtn = screen.getByRole('button', { name: /Edit Text/i });
+    const editBtn = await screen.findByRole('button', { name: /Edit Text/i });
     fireEvent.click(editBtn);
     
     expect(screen.getByText('Edit Drafted Note')).toBeInTheDocument();
@@ -38,23 +51,73 @@ describe('AI Companion Suite', () => {
     expect(screen.getByPlaceholderText('Reflect with Journ...')).toBeInTheDocument();
   });
 
-  describe('Suite 9: Streaming Response UI', () => {
-    it('T9.1 Chat Stream Rendering', async () => {
+  describe('Suite 9: API Chat Wiring', () => {
+    it('T9.1 should disable the send button and show a typing indicator while awaiting the AI API response', async () => {
+      let resolvePromise: (v: any) => void = () => {};
+      global.fetch = jest.fn().mockReturnValue(new Promise(resolve => {
+        resolvePromise = resolve;
+      }));
+
       render(<ChatCompanion />);
-      
-      // Select the input and submit a message
       const input = screen.getByPlaceholderText('Reflect with Journ...');
       
+      fireEvent.change(input, { target: { value: 'Hello AI' } });
+      const sendBtn = input.parentElement?.querySelector('button:last-child');
+      
       act(() => {
-        fireEvent.change(input, { target: { value: 'Hello AI' } });
-        // Simulating form submission or send button click
-        const sendBtn = input.parentElement?.querySelector('button:last-child');
-        if (sendBtn) fireEvent.click(sendBtn);
+        fireEvent.click(sendBtn!);
       });
       
-      // TODO: Mock the SSE stream response from /api/chat/message
-      // Assert that incremental chunks (e.g., "Hello", " ", "World") render correctly
-      // expect(screen.getByText(/Hello World/i)).toBeInTheDocument();
+      expect(input).toBeDisabled();
+      expect(sendBtn).toBeDisabled();
+      expect(screen.getByTestId('typing-indicator')).toBeInTheDocument();
+      
+      await act(async () => {
+        resolvePromise({
+          ok: true,
+          json: async () => ({ replyText: 'Hi' })
+        });
+      });
+    });
+
+    it('T9.2 should append the user message and real AI response to the chat view upon a successful API call', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ replyText: 'I am your AI companion.' })
+      });
+      
+      render(<ChatCompanion />);
+      const input = screen.getByPlaceholderText('Reflect with Journ...');
+      
+      fireEvent.change(input, { target: { value: 'Hello AI' } });
+      const sendBtn = input.parentElement?.querySelector('button:last-child');
+      
+      await act(async () => {
+        fireEvent.click(sendBtn!);
+      });
+      
+      expect(screen.getByText('Hello AI')).toBeInTheDocument();
+      expect(await screen.findByText('I am your AI companion.')).toBeInTheDocument();
+    });
+
+    it('T9.3 should render the Draft Confirmation Card if the API returns an extractedDraft string', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ replyText: 'Here is a draft.', extractedDraft: 'This is the new extracted draft.' })
+      });
+      
+      render(<ChatCompanion />);
+      const input = screen.getByPlaceholderText('Reflect with Journ...');
+      
+      fireEvent.change(input, { target: { value: 'Hello AI' } });
+      const sendBtn = input.parentElement?.querySelector('button:last-child');
+      
+      await act(async () => {
+        fireEvent.click(sendBtn!);
+      });
+      
+      expect(await screen.findByText('Drafted Journal Note')).toBeInTheDocument();
+      expect(screen.getByText('This is the new extracted draft.')).toBeInTheDocument();
     });
   });
 });

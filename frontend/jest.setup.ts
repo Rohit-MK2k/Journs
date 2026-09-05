@@ -2,7 +2,7 @@ import '@testing-library/jest-dom'
 
 jest.mock('firebase/auth', () => ({
   getAuth: jest.fn(() => ({
-    currentUser: { uid: 'mock-user' }
+    currentUser: { uid: 'mock-user', getIdToken: jest.fn().mockResolvedValue('mock-token') }
   })),
   GoogleAuthProvider: jest.fn(),
   signInWithPopup: jest.fn(),
