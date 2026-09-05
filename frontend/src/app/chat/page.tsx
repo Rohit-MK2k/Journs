@@ -7,13 +7,50 @@ import { apiClient } from "@/lib/apiClient";
 
 type ChatMode = "text" | "voice" | "edit";
 
+type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; extractedDraft?: string };
+
 export default function ChatCompanion() {
   const [mode, setMode] = useState<ChatMode>("text");
   const [inputText, setInputText] = useState("");
-  const [draftContent, setDraftContent] = useState(
-    "You mentioned simplifying the architecture and stripping away the complex state machine. I've drafted this note to capture your thoughts from the walk at Golden Gate Park."
-  );
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [draftContent, setDraftContent] = useState("");
   const [destination, setDestination] = useState<"append" | "new">("append");
+
+  const handleSend = async () => {
+    if (!inputText.trim() || isLoading) return;
+    
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', text: inputText };
+    setMessages(prev => [...prev, userMsg]);
+    setInputText("");
+    setIsLoading(true);
+
+    try {
+      const res = await apiClient('/api/chat/message', {
+        method: 'POST',
+        body: JSON.stringify({ message: userMsg.text })
+      });
+      const data = await res.json();
+      
+      const assistantMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        text: data.replyText,
+        extractedDraft: data.extractedDraft
+      };
+      
+      if (data.extractedDraft) {
+        setDraftContent(data.extractedDraft);
+      }
+      
+      setMessages(prev => [...prev, assistantMsg]);
+    } catch (error) {
+      // In a real app, handle error visibly
+      console.error("Failed to send message", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Layout wrapper representing the modal/drawer on desktop or full screen on mobile
   const renderLayout = (children: React.ReactNode, hideHeader = false) => (
@@ -199,57 +236,67 @@ export default function ChatCompanion() {
   return renderLayout(
     <>
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-        {/* Context Opening Question */}
-        <div className="text-center text-caption-sm text-tertiary my-2">
-          Yesterday you mentioned preparing for the presentation. How did it feel?
-        </div>
-
-        {/* Assistant Bubble */}
-        <div className="self-start max-w-[85%] bg-transparent border border-border rounded-2xl rounded-tl-sm p-4 text-primary text-body-md leading-relaxed">
-          It sounds like you've been working through some complex state management issues today. Did the walk through the park help clear your mind?
-        </div>
-
-        {/* User Bubble */}
-        <div className="self-end max-w-[85%] bg-subtle rounded-2xl rounded-tr-sm p-4 text-primary text-body-md leading-relaxed">
-          Yeah, stepping away really helped. I realized we can completely strip away the state machine and just rely on React's natural rendering cycle.
-        </div>
-
-        {/* Assistant Bubble */}
-        <div className="self-start max-w-[85%] bg-transparent border border-border rounded-2xl rounded-tl-sm p-4 text-primary text-body-md leading-relaxed">
-          That's a great breakthrough. Simplicity is a discipline. I've drafted a journal note about this architectural decision if you'd like to save it.
-        </div>
-
-        {/* Drafted Journal Note Card */}
-        <div className="w-full bg-surface border border-border rounded-xl overflow-hidden shadow-sm mt-2">
-          <div className="bg-subtle px-4 py-2 border-b border-border flex items-center justify-between">
-            <span className="text-label-md font-medium text-primary">Drafted Journal Note</span>
-            <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded">Requires Confirmation</span>
+        {messages.length === 0 && (
+          <div className="text-center text-caption-sm text-tertiary my-2">
+            Ask Journ a question or reflect on your day.
           </div>
-          <div className="p-4">
-            <p className="text-body-md text-primary leading-relaxed line-clamp-3">
-              {draftContent}
-            </p>
-            <div className="flex flex-col gap-2 mt-5">
-              <button className="w-full bg-primary text-canvas py-2 rounded-lg text-body-md font-medium hover:opacity-90 transition-opacity">
-                Save to Today's Entry
-              </button>
-              <button className="w-full bg-subtle text-primary border border-border py-2 rounded-lg text-body-md font-medium hover:bg-border transition-colors">
-                Save as New Separate Entry
-              </button>
-              <div className="flex gap-2 mt-1">
-                <button 
-                  onClick={() => setMode("edit")}
-                  className="flex-1 text-secondary hover:text-primary text-body-md font-medium py-1.5 transition-colors"
-                >
-                  Edit Text
-                </button>
-                <button className="flex-1 text-red-500/70 hover:text-red-500 text-body-md font-medium py-1.5 transition-colors">
-                  Discard
-                </button>
+        )}
+
+        {messages.map(msg => (
+          <React.Fragment key={msg.id}>
+            {msg.role === 'assistant' ? (
+              <div className="self-start max-w-[85%] bg-transparent border border-border rounded-2xl rounded-tl-sm p-4 text-primary text-body-md leading-relaxed whitespace-pre-wrap">
+                {msg.text}
               </div>
-            </div>
+            ) : (
+              <div className="self-end max-w-[85%] bg-subtle rounded-2xl rounded-tr-sm p-4 text-primary text-body-md leading-relaxed whitespace-pre-wrap">
+                {msg.text}
+              </div>
+            )}
+            
+            {msg.extractedDraft && (
+              <div className="w-full bg-surface border border-border rounded-xl overflow-hidden shadow-sm mt-2">
+                <div className="bg-subtle px-4 py-2 border-b border-border flex items-center justify-between">
+                  <span className="text-label-md font-medium text-primary">Drafted Journal Note</span>
+                  <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded">Requires Confirmation</span>
+                </div>
+                <div className="p-4">
+                  <p className="text-body-md text-primary leading-relaxed line-clamp-3">
+                    {msg.extractedDraft}
+                  </p>
+                  <div className="flex flex-col gap-2 mt-5">
+                    <button className="w-full bg-primary text-canvas py-2 rounded-lg text-body-md font-medium hover:opacity-90 transition-opacity">
+                      Save to Today's Entry
+                    </button>
+                    <button className="w-full bg-subtle text-primary border border-border py-2 rounded-lg text-body-md font-medium hover:bg-border transition-colors">
+                      Save as New Separate Entry
+                    </button>
+                    <div className="flex gap-2 mt-1">
+                      <button 
+                        onClick={() => {
+                          setDraftContent(msg.extractedDraft!);
+                          setMode("edit");
+                        }}
+                        className="flex-1 text-secondary hover:text-primary text-body-md font-medium py-1.5 transition-colors"
+                      >
+                        Edit Text
+                      </button>
+                      <button className="flex-1 text-red-500/70 hover:text-red-500 text-body-md font-medium py-1.5 transition-colors">
+                        Discard
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        ))}
+
+        {isLoading && (
+          <div className="self-start max-w-[85%] bg-transparent border border-border rounded-2xl rounded-tl-sm p-4 text-primary text-body-md" data-testid="typing-indicator">
+            <span className="animate-pulse">...</span>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Input Bar */}
@@ -259,15 +306,17 @@ export default function ChatCompanion() {
             type="text" 
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            disabled={isLoading}
             placeholder="Reflect with Journ..."
-            className="flex-1 bg-transparent outline-none text-body-md text-primary placeholder:text-tertiary"
+            className="flex-1 bg-transparent outline-none text-body-md text-primary placeholder:text-tertiary disabled:opacity-50"
           />
           {!inputText ? (
-            <button onClick={() => setMode("voice")} className="w-8 h-8 flex items-center justify-center text-secondary hover:text-primary transition-colors">
+            <button onClick={() => setMode("voice")} disabled={isLoading} className="w-8 h-8 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-50">
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
             </button>
           ) : (
-            <button className="w-8 h-8 flex items-center justify-center bg-primary text-canvas rounded-full transition-transform hover:scale-105">
+            <button onClick={handleSend} disabled={isLoading} className="w-8 h-8 flex items-center justify-center bg-primary text-canvas rounded-full transition-transform hover:scale-105 disabled:opacity-50 disabled:scale-100">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
             </button>
           )}
