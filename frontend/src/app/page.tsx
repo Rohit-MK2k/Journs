@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import AuthGuard from "@/components/AuthGuard";
+import { apiClient } from "@/lib/apiClient";
 
-// Mock Data
+// Mock Data (will be replaced by SWR in full integration)
 const MOCK_PAST_ENTRIES = [
   {
     id: "1",
@@ -29,18 +31,31 @@ const MOCK_PAST_ENTRIES = [
 
 export default function MainDashboard() {
   const [editorText, setEditorText] = useState("");
-  const [saveStatus, setSaveStatus] = useState<"Saving..." | "Saved" | "">("");
+  const [saveStatus, setSaveStatus] = useState<"Saving..." | "Saved" | "Sync Failed" | "">("");
   const [expandedEntry, setExpandedEntry] = useState<typeof MOCK_PAST_ENTRIES[0] | null>(null);
+  const isFirstRender = useRef(true);
   
-  // Autosave simulation
+  // Autosave integration logic
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    
     if (!editorText) return;
     setSaveStatus("Saving...");
     
-    const timeout = setTimeout(() => {
-      setSaveStatus("Saved");
-      // Fade out saved after 2 seconds
-      setTimeout(() => setSaveStatus(""), 2000);
+    const timeout = setTimeout(async () => {
+      try {
+        await apiClient('/api/entries/autosave', {
+          method: 'POST',
+          body: JSON.stringify({ text: editorText })
+        });
+        setSaveStatus("Saved");
+        setTimeout(() => setSaveStatus(""), 2000);
+      } catch (error) {
+        setSaveStatus("Sync Failed");
+      }
     }, 1000);
     
     return () => clearTimeout(timeout);
@@ -48,18 +63,20 @@ export default function MainDashboard() {
 
   // Layout wrapper (680px canal)
   const renderLayout = (children: React.ReactNode) => (
-    <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas pb-24 relative">
-      <div className="w-full max-w-[680px] px-4 md:px-8 flex flex-col flex-1">
-        {children}
+    <AuthGuard>
+      <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas pb-24 relative">
+        <div className="w-full max-w-[680px] px-4 md:px-8 flex flex-col flex-1">
+          {children}
+        </div>
+        
+        {/* FAB (AI Companion) */}
+        <Link href="/chat" className="fixed bottom-6 right-6 md:bottom-10 md:right-10 w-14 h-14 bg-surface border border-border shadow-md rounded-full flex items-center justify-center hover:bg-subtle transition-transform hover:scale-105">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+          </svg>
+        </Link>
       </div>
-      
-      {/* FAB (AI Companion) */}
-      <Link href="/chat" className="fixed bottom-6 right-6 md:bottom-10 md:right-10 w-14 h-14 bg-surface border border-border shadow-md rounded-full flex items-center justify-center hover:bg-subtle transition-transform hover:scale-105">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-          <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-        </svg>
-      </Link>
-    </div>
+    </AuthGuard>
   );
 
   // Expanded Entry View

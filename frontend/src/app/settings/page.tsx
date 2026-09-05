@@ -2,31 +2,58 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import AuthGuard from "@/components/AuthGuard";
+import { getAuth, signOut } from "firebase/auth";
+import { apiClient } from "@/lib/apiClient";
 
 export default function AccountSettings() {
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [habitMemoryEnabled, setHabitMemoryEnabled] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const router = useRouter();
 
   const isDeleteEnabled = deleteConfirmation === "DELETE";
 
-  return (
-    <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas">
-      <div className="w-full max-w-[680px] px-4 md:px-8 flex flex-col flex-1 pb-24">
-        
-        {/* Header */}
-        <header className="py-6 border-b border-border sticky top-0 bg-canvas/90 backdrop-blur z-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-secondary hover:text-primary transition-colors text-body-md font-medium mb-4">
-            ← Back to Journal
-          </Link>
-          <h1 className="font-serif text-display-lg font-medium text-primary tracking-tight">Account & Settings</h1>
-          <p className="text-secondary text-body-md mt-1">Manage your journal identity, preferences, and data privacy.</p>
-        </header>
+  const handleLogout = async () => {
+    try {
+      await signOut(getAuth());
+      router.push("/login");
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-        <div className="flex flex-col gap-10 mt-8">
+  const handleDelete = async () => {
+    if (isDeleteEnabled) {
+      try {
+        await apiClient('/api/account', { method: 'DELETE' });
+        await signOut(getAuth());
+        router.push("/login");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  return (
+    <AuthGuard>
+      <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas">
+        <div className="w-full max-w-[680px] px-4 md:px-8 flex flex-col flex-1 pb-24">
           
-          {/* Profile Card (Google Identity) */}
-          <section className="flex flex-col gap-4">
+          {/* Header */}
+          <header className="py-6 border-b border-border sticky top-0 bg-canvas/90 backdrop-blur z-10">
+            <Link href="/" className="inline-flex items-center gap-2 text-secondary hover:text-primary transition-colors text-body-md font-medium mb-4">
+              ← Back to Journal
+            </Link>
+            <h1 className="font-serif text-display-lg font-medium text-primary tracking-tight">Account & Settings</h1>
+            <p className="text-secondary text-body-md mt-1">Manage your journal identity, preferences, and data privacy.</p>
+          </header>
+
+          <div className="flex flex-col gap-10 mt-8">
+            
+            {/* Profile Card (Google Identity) */}
+            <section className="flex flex-col gap-4">
             <h2 className="text-label-md uppercase tracking-wider text-tertiary font-medium">Profile</h2>
             <div className="bg-surface border border-border rounded-xl p-5 md:p-6 shadow-sm flex flex-col gap-5">
               <div className="flex items-center gap-4">
@@ -121,7 +148,7 @@ export default function AccountSettings() {
                   Signed in on this browser instance. Entries are continuously autosaved to your encrypted remote vault.
                 </p>
               </div>
-              <button className="whitespace-nowrap px-4 py-2 border border-border bg-subtle hover:bg-border text-primary rounded-lg text-body-md font-medium transition-colors">
+              <button onClick={handleLogout} className="whitespace-nowrap px-4 py-2 border border-border bg-subtle hover:bg-border text-primary rounded-lg text-body-md font-medium transition-colors">
                 Log Out
               </button>
             </div>
@@ -146,6 +173,7 @@ export default function AccountSettings() {
                     className="flex-1 bg-surface border border-red-500/30 rounded-lg px-4 py-2 text-primary focus:outline-none focus:ring-2 focus:ring-red-500/30"
                   />
                   <button 
+                    onClick={handleDelete}
                     disabled={!isDeleteEnabled}
                     className={`px-6 py-2 rounded-lg font-medium text-body-md transition-all ${
                       isDeleteEnabled 
@@ -168,5 +196,6 @@ export default function AccountSettings() {
         </footer>
       </div>
     </div>
+    </AuthGuard>
   );
 }

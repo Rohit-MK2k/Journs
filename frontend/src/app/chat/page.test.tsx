@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import ChatCompanion from './page';
 
 jest.mock('next/link', () => {
@@ -36,5 +36,25 @@ describe('AI Companion Suite', () => {
     
     // Should return to text mode
     expect(screen.getByPlaceholderText('Reflect with Journ...')).toBeInTheDocument();
+  });
+
+  describe('Suite 9: Streaming Response UI', () => {
+    it('T9.1 Chat Stream Rendering', async () => {
+      render(<ChatCompanion />);
+      
+      // Select the input and submit a message
+      const input = screen.getByPlaceholderText('Reflect with Journ...');
+      
+      act(() => {
+        fireEvent.change(input, { target: { value: 'Hello AI' } });
+        // Simulating form submission or send button click
+        const sendBtn = input.parentElement?.querySelector('button:last-child');
+        if (sendBtn) fireEvent.click(sendBtn);
+      });
+      
+      // TODO: Mock the SSE stream response from /api/chat/message
+      // Assert that incremental chunks (e.g., "Hello", " ", "World") render correctly
+      // expect(screen.getByText(/Hello World/i)).toBeInTheDocument();
+    });
   });
 });

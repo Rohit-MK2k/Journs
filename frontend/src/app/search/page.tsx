@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function SearchOverlay() {
   const [query, setQuery] = useState("");
@@ -24,14 +25,12 @@ export default function SearchOverlay() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
-  // Auto-focus input
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  // Auto-focus handled by autoFocus prop on input
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      // Integration point for `apiClient('/api/search?q=...')`
       setHasSearched(true);
     }
   };
@@ -43,10 +42,11 @@ export default function SearchOverlay() {
   };
 
   return (
-    <div className={`min-h-screen bg-canvas md:bg-black/40 md:backdrop-blur-sm flex justify-center p-0 md:p-6 lg:p-12 transition-opacity duration-300 ${isExiting ? "opacity-0" : "opacity-100"}`}>
-      
-      <div className="w-full max-w-[720px] bg-canvas md:bg-surface md:rounded-2xl md:shadow-2xl md:border md:border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 md:slide-in-from-top-4 duration-300 h-screen md:h-auto md:max-h-[85vh]">
+    <AuthGuard>
+      <div className={`min-h-screen bg-canvas md:bg-black/40 md:backdrop-blur-sm flex justify-center p-0 md:p-6 lg:p-12 transition-opacity duration-300 ${isExiting ? "opacity-0" : "opacity-100"}`}>
         
+        <div className="w-full max-w-[720px] bg-canvas md:bg-surface md:rounded-2xl md:shadow-2xl md:border md:border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 md:slide-in-from-top-4 duration-300 h-screen md:h-auto md:max-h-[85vh]">
+          
         {/* Header & Search Bar */}
         <div className="p-4 md:p-6 border-b border-border bg-canvas md:bg-surface/95 sticky top-0 z-10 backdrop-blur">
           <form onSubmit={handleSearch} className="relative group">
@@ -56,6 +56,7 @@ export default function SearchOverlay() {
             
             <input
               ref={inputRef}
+              autoFocus
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -201,6 +202,7 @@ export default function SearchOverlay() {
           ← Returning to Search • collapsing canvas
         </div>
       )}
-    </div>
+      </div>
+    </AuthGuard>
   );
 }

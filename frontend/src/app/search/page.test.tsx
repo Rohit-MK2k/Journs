@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import SearchOverlay from './page';
 import { useRouter } from 'next/navigation';
 
@@ -23,10 +23,12 @@ describe('Semantic Search Suite', () => {
     jest.useRealTimers();
   });
 
-  it('T4.1 Auto-Focus', () => {
+  it('T4.1 Auto-Focus', async () => {
     render(<SearchOverlay />);
     const input = screen.getByPlaceholderText(/Ask or search anything/i);
-    expect(document.activeElement).toBe(input);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(input);
+    });
   });
 
   it('T4.2 Search Submission & T4.3 Clear Input', () => {

@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import AuthGuard from "@/components/AuthGuard";
+import { apiClient } from "@/lib/apiClient";
 
 type ChatMode = "text" | "voice" | "edit";
 
@@ -15,39 +17,41 @@ export default function ChatCompanion() {
 
   // Layout wrapper representing the modal/drawer on desktop or full screen on mobile
   const renderLayout = (children: React.ReactNode, hideHeader = false) => (
-    <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas md:bg-black/5 md:py-12">
-      <div className="w-full h-screen md:h-auto md:min-h-[700px] md:max-w-[500px] bg-canvas md:bg-surface md:rounded-2xl md:border md:border-border md:shadow-lg flex flex-col relative overflow-hidden">
-        {!hideHeader && (
-          <header className="flex items-center justify-between px-4 py-4 border-b border-border bg-canvas/80 md:bg-surface/80 backdrop-blur-sm z-10">
-            <div className="flex items-center gap-2 font-medium text-body-md text-primary">
-              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
-              Reflect
-            </div>
-            
-            {/* Dual Mode Switcher */}
-            <div className="flex items-center bg-subtle p-1 rounded-full border border-border">
-              <button 
-                onClick={() => setMode("text")}
-                className={`px-3 py-1 text-label-md rounded-full transition-colors ${mode === 'text' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
-              >
-                ≡ Text
-              </button>
-              <button 
-                onClick={() => setMode("voice")}
-                className={`px-3 py-1 text-label-md rounded-full transition-colors flex items-center gap-1 ${mode === 'voice' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
-              >
-                🎙 Voice
-              </button>
-            </div>
-            
-            <Link href="/" className="text-secondary hover:text-primary p-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </Link>
-          </header>
-        )}
-        {children}
+    <AuthGuard>
+      <div className="flex-1 flex flex-col items-center min-h-screen bg-canvas md:bg-black/5 md:py-12">
+        <div className="w-full h-screen md:h-auto md:min-h-[700px] md:max-w-[500px] bg-canvas md:bg-surface md:rounded-2xl md:border md:border-border md:shadow-lg flex flex-col relative overflow-hidden">
+          {!hideHeader && (
+            <header className="flex items-center justify-between px-4 py-4 border-b border-border bg-canvas/80 md:bg-surface/80 backdrop-blur-sm z-10">
+              <div className="flex items-center gap-2 font-medium text-body-md text-primary">
+                <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+                Reflect
+              </div>
+              
+              {/* Dual Mode Switcher */}
+              <div className="flex items-center bg-subtle p-1 rounded-full border border-border">
+                <button 
+                  onClick={() => setMode("text")}
+                  className={`px-3 py-1 text-label-md rounded-full transition-colors ${mode === 'text' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
+                >
+                  ≡ Text
+                </button>
+                <button 
+                  onClick={() => setMode("voice")}
+                  className={`px-3 py-1 text-label-md rounded-full transition-colors flex items-center gap-1 ${mode === 'voice' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
+                >
+                  🎙 Voice
+                </button>
+              </div>
+              
+              <Link href="/" className="text-secondary hover:text-primary p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              </Link>
+            </header>
+          )}
+          {children}
+        </div>
       </div>
-    </div>
+    </AuthGuard>
   );
 
   if (mode === "edit") {
