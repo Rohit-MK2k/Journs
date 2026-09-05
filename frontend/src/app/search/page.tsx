@@ -4,20 +4,31 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
+import { apiClient } from "@/lib/apiClient";
+
+export type SearchResult = {
+  id: string;
+  date: string;
+  location?: string;
+  matchScore: number;
+  semanticChips: string[];
+  snippet: string;
+  attachments?: { voice?: boolean; photo?: boolean };
+};
 
 export default function SearchOverlay() {
   const [query, setQuery] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [isExiting, setIsExiting] = useState(false);
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Handle ESC shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsExiting(true);
-        // Simulate reverse transition before navigating
         setTimeout(() => router.push("/"), 300);
       }
     };
@@ -25,19 +36,30 @@ export default function SearchOverlay() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [router]);
 
-  // Auto-focus handled by autoFocus prop on input
+  const executeSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
+    setHasSearched(true);
+    setIsSearching(true);
+    try {
+      const res = await apiClient(`/api/search?q=${encodeURIComponent(searchQuery)}`);
+      const data = await res.json();
+      setResults(data);
+    } catch (err) {
+      setResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      // Integration point for `apiClient('/api/search?q=...')`
-      setHasSearched(true);
-    }
+    executeSearch(query);
   };
 
   const handleClear = () => {
     setQuery("");
     setHasSearched(false);
+    setResults([]);
     inputRef.current?.focus();
   };
 
@@ -92,20 +114,20 @@ export default function SearchOverlay() {
               <h3 className="text-label-md uppercase tracking-wider text-tertiary font-medium mb-4">Suggested Reflections</h3>
               <div className="flex flex-col gap-3">
                 <button 
-                  onClick={() => { setQuery("when did I decide to simplify the architecture during a walk?"); setHasSearched(true); }}
+                  onClick={() => { const q = "when did I decide to simplify the architecture during a walk?"; setQuery(q); executeSearch(q); }}
                   className="text-left p-4 rounded-xl border border-border bg-subtle/50 hover:bg-subtle transition-colors flex flex-col gap-1.5"
                 >
                   <div className="text-body-md text-primary font-medium">“When did I decide to simplify the architecture during a walk?”</div>
                   <div className="text-caption-sm text-secondary">Matches 2 entries • September 2024</div>
                 </button>
                 <button 
-                  onClick={() => { setQuery("Reflections about morning coffee and clarity in San Francisco"); setHasSearched(true); }}
+                  onClick={() => { const q = "Reflections about morning coffee and clarity in San Francisco"; setQuery(q); executeSearch(q); }}
                   className="text-left p-4 rounded-xl border border-border bg-subtle/50 hover:bg-subtle transition-colors flex flex-col gap-1.5"
                 >
                   <div className="text-body-md text-primary font-medium">“Reflections about morning coffee and clarity in San Francisco”</div>
                 </button>
                 <button 
-                  onClick={() => { setQuery("Moments of feeling overwhelmed by project scope in August"); setHasSearched(true); }}
+                  onClick={() => { const q = "Moments of feeling overwhelmed by project scope in August"; setQuery(q); executeSearch(q); }}
                   className="text-left p-4 rounded-xl border border-border bg-subtle/50 hover:bg-subtle transition-colors flex flex-col gap-1.5"
                 >
                   <div className="text-body-md text-primary font-medium">“Moments of feeling overwhelmed by project scope in August”</div>
@@ -124,72 +146,83 @@ export default function SearchOverlay() {
           {hasSearched && (
             <div className="flex flex-col gap-6 animate-in slide-in-from-bottom-4 fade-in duration-500">
               
-              {/* Active Result Card (Primary Match) */}
-              <div className="bg-canvas md:bg-surface border border-border rounded-xl p-5 shadow-sm relative overflow-hidden ring-1 ring-primary/5">
-                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
-                
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex flex-col gap-1">
-                    <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[11px] font-semibold tracking-wide uppercase">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                      98% Semantic Match
-                    </span>
-                    <div className="text-caption-sm text-tertiary">Tuesday, September 3, 2024 • Bernal Heights</div>
-                  </div>
+              {isSearching ? (
+                <div data-testid="search-loader" className="flex items-center justify-center py-12 text-tertiary gap-2">
+                  <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse"></span>
+                  <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse delay-75"></span>
+                  <span className="w-2 h-2 rounded-full bg-tertiary animate-pulse delay-150"></span>
+                  <span className="ml-2 text-body-md">Searching your mind...</span>
                 </div>
-
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  <span className="px-2 py-0.5 bg-subtle text-secondary border border-border rounded-md text-xs">architecture decisions</span>
-                  <span className="px-2 py-0.5 bg-subtle text-secondary border border-border rounded-md text-xs">strip away complex state machine</span>
-                  <span className="px-2 py-0.5 bg-subtle text-secondary border border-border rounded-md text-xs">simplicity is a discipline</span>
+              ) : results.length === 0 ? (
+                <div className="text-center py-12 text-tertiary">
+                  <p className="text-body-lg">No reflections found for "{query}".</p>
+                  <p className="text-caption-sm mt-2">Try a different phrasing or explore broader topics.</p>
                 </div>
+              ) : (
+                <>
+                  {/* Primary Result */}
+                  {results.length > 0 && (
+                    <div className="bg-canvas md:bg-surface border border-border rounded-xl p-5 shadow-sm relative overflow-hidden ring-1 ring-primary/5">
+                      <div className="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                      
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded text-[11px] font-semibold tracking-wide uppercase">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                            {results[0].matchScore}% Semantic Match
+                          </span>
+                          <div className="text-caption-sm text-tertiary">{results[0].date}{results[0].location && ` • ${results[0].location}`}</div>
+                        </div>
+                      </div>
 
-                <p className="text-body-lg text-primary leading-relaxed mb-4">
-                  The fog was heavy this morning, but by the time I hit Golden Gate Park, the sun was breaking through. I realized that the complexity of the current system is mostly in how we handle state. If we just <span className="bg-blue-500/20 text-blue-900 dark:text-blue-200 rounded px-1">strip away the complex state machine</span> and focus on native component lifecycles, everything gets easier. <span className="bg-blue-500/20 text-blue-900 dark:text-blue-200 rounded px-1">Architecture decisions</span> shouldn't be driven by fear of doing things manually. <span className="bg-blue-500/20 text-blue-900 dark:text-blue-200 rounded px-1">Simplicity is a discipline.</span>
-                </p>
+                      <div className="flex flex-wrap gap-1.5 mb-4">
+                        {results[0].semanticChips.map(chip => (
+                          <span key={chip} className="px-2 py-0.5 bg-subtle text-secondary border border-border rounded-md text-xs">{chip}</span>
+                        ))}
+                      </div>
 
-                <div className="flex gap-2 mb-5">
-                  <div className="flex items-center gap-2 bg-subtle px-2.5 py-1 rounded-lg border border-border text-xs text-primary">
-                    ▶ Voice memo
+                      <p className="text-body-lg text-primary leading-relaxed mb-4" dangerouslySetInnerHTML={{ __html: results[0].snippet }} />
+
+                      <div className="flex gap-2 mb-5">
+                        {results[0].attachments?.voice && (
+                          <div className="flex items-center gap-2 bg-subtle px-2.5 py-1 rounded-lg border border-border text-xs text-primary">
+                            ▶ Voice memo
+                          </div>
+                        )}
+                        {results[0].attachments?.photo && (
+                          <div className="flex items-center gap-2 bg-subtle px-2.5 py-1 rounded-lg border border-border text-xs text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                            Photo attached
+                          </div>
+                        )}
+                      </div>
+
+                      <button className="text-body-md font-medium text-primary hover:text-blue-600 transition-colors flex items-center gap-1">
+                        Tap to read full entry <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Secondary Clustered Results */}
+                  {results.length > 1 && (
+                    <div className="opacity-80 scale-[0.98] origin-top">
+                      {results.slice(1).map((res) => (
+                        <div key={res.id} className="bg-canvas md:bg-surface border border-border rounded-xl p-4 flex flex-col gap-2 shadow-sm mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 bg-subtle text-secondary rounded text-[10px] font-semibold tracking-wide uppercase">{res.matchScore}% Semantic Match</span>
+                            <span className="text-caption-sm text-tertiary">{res.date}</span>
+                          </div>
+                          <p className="text-body-md text-secondary line-clamp-2" dangerouslySetInnerHTML={{ __html: res.snippet }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="text-center py-6 text-caption-sm text-tertiary border-t border-border mt-2">
+                    End of semantic vector matches · {results.length} entries surfaced
                   </div>
-                  <div className="flex items-center gap-2 bg-subtle px-2.5 py-1 rounded-lg border border-border text-xs text-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-                    Photo attached
-                  </div>
-                </div>
-
-                <button className="text-body-md font-medium text-primary hover:text-blue-600 transition-colors flex items-center gap-1">
-                  Tap to read full entry <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                </button>
-              </div>
-
-              {/* Secondary Clustered Results */}
-              <div className="opacity-80 scale-[0.98] origin-top">
-                <div className="bg-canvas md:bg-surface border border-border rounded-xl p-4 flex flex-col gap-2 shadow-sm mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-subtle text-secondary rounded text-[10px] font-semibold tracking-wide uppercase">81% Semantic Match</span>
-                    <span className="text-caption-sm text-tertiary">August 24, 2024</span>
-                  </div>
-                  <p className="text-body-md text-secondary line-clamp-2">
-                    I spent 3 hours overcomplicating the router. Sometimes <span className="bg-blue-500/10 text-primary px-1 rounded">simplicity</span> requires rewriting things from scratch just to realize you didn't need half the abstractions.
-                  </p>
-                </div>
-
-                <div className="bg-canvas md:bg-surface border border-border rounded-xl p-4 flex flex-col gap-2 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 bg-subtle text-secondary rounded text-[10px] font-semibold tracking-wide uppercase">74% Semantic Match</span>
-                    <span className="text-caption-sm text-tertiary">August 12, 2024</span>
-                  </div>
-                  <p className="text-body-md text-secondary line-clamp-2">
-                    Walked near the beach. Thinking about how the <span className="bg-blue-500/10 text-primary px-1 rounded">architecture</span> of my day affects my mood more than the tasks themselves.
-                  </p>
-                </div>
-              </div>
-
-              <div className="text-center py-6 text-caption-sm text-tertiary border-t border-border mt-2">
-                End of semantic vector matches · 3 entries surfaced
-              </div>
-
+                </>
+              )}
             </div>
           )}
         </div>
