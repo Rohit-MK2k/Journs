@@ -78,20 +78,45 @@ describe('Main Dashboard Suite', () => {
       expect(screen.getByLabelText('Add Location')).toBeInTheDocument();
     });
 
-    it('T10.2 should successfully simulate an attachment upload flow and render the resulting metadata chip', async () => {
+    it('T10.2 should capture the real entry ID from the autosave response and use it for subsequent attachment uploads', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Autosave
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ url: 'upload.url' }) } as any) // Signed URL
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any); // Attach
+
       render(<TestWrapper><MainDashboard /></TestWrapper>);
+      const textarea = screen.getByRole('textbox');
+      
+      fireEvent.change(textarea, { target: { value: 'Something' } });
+      await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 3000 });
       
       await act(async () => {
         fireEvent.click(screen.getByLabelText('Add Voice'));
       });
       
       expect(await screen.findByText('🎙 Voice')).toBeInTheDocument();
+      
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/entries/entry-456/attachments'),
+        expect.objectContaining({ method: 'POST' })
+      );
+      fetchSpy.mockRestore();
     });
 
     it('T10.3 should display an error state if the signed URL request or cloud upload fails', async () => {
-      global.fetch = jest.fn().mockImplementation(() => Promise.reject(new Error('Upload failed')));
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Autosave
+              .mockImplementationOnce(() => Promise.reject(new Error('Upload failed'))); // Fail upload
       
       render(<TestWrapper><MainDashboard /></TestWrapper>);
+      const textarea = screen.getByRole('textbox');
+      
+      fireEvent.change(textarea, { target: { value: 'Something' } });
+      await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 3000 });
       
       const btn = screen.getByLabelText('Add Photo');
       await act(async () => {
@@ -101,6 +126,7 @@ describe('Main Dashboard Suite', () => {
       await waitFor(() => {
         expect(screen.getByText('Upload Failed')).toBeInTheDocument();
       }, { timeout: 2000 });
+      fetchSpy.mockRestore();
     });
   });
 
@@ -145,25 +171,32 @@ describe('Main Dashboard Suite', () => {
   describe('Suite 12: Auto-Summary Trigger', () => {
     beforeEach(() => { jest.useRealTimers(); });
     
-    it('T12.1 should trigger the summary generation API endpoint silently in the background on editor blur', async () => {
+    it('T12.1 should capture the real entry ID from the autosave response and use it to trigger summary generation on blur', async () => {
       const fetchSpy = jest.spyOn(global, 'fetch');
       fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'real-dynamic-id-999' }) } as any) // Autosave
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any); // Summary generate
       
       render(<TestWrapper><MainDashboard /></TestWrapper>);
-      
       const textarea = screen.getByRole('textbox');
       
-      await act(async () => {
-        fireEvent.change(textarea, { target: { value: 'This is a long enough entry to trigger a summary generation.' } });
-      });
+      // Trigger autosave
+      fireEvent.change(textarea, { target: { value: 'This is a long enough entry to trigger a summary generation.' } });
       
+      // Wait for autosave to complete (1000ms debounce + API call)
+      await waitFor(() => {
+        expect(screen.getByText('Saved')).toBeInTheDocument();
+      }, { timeout: 3000 });
+      
+      // Trigger blur
       await act(async () => {
         fireEvent.blur(textarea);
       });
       
       await waitFor(() => {
         expect(fetchSpy).toHaveBeenCalledWith(
-          expect.stringContaining('/api/entries/123/summary/generate'),
+          expect.stringContaining('/api/entries/real-dynamic-id-999/summary/generate'),
           expect.objectContaining({ method: 'POST' })
         );
       }, { timeout: 2000 });

@@ -25,6 +25,7 @@ const fetcher = async (url: string) => {
 export default function MainDashboard() {
   const [editorText, setEditorText] = useState("");
   const [saveStatus, setSaveStatus] = useState<"Saving..." | "Saved" | "Sync Failed" | "">("");
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
   const [expandedEntry, setExpandedEntry] = useState<JournalEntry | null>(null);
 
   const { data: entries, error: entriesError, isLoading: entriesLoading } = useSWR<JournalEntry[]>('/api/entries', fetcher, {
@@ -77,10 +78,13 @@ export default function MainDashboard() {
     
     const timeout = setTimeout(async () => {
       try {
-        await apiClient('/api/entries/autosave', {
+        const res = await apiClient('/api/entries/autosave', {
           method: 'POST',
           body: JSON.stringify({ text: editorText })
         });
+        const data = await res.json();
+        if (data.id) setCurrentEntryId(data.id);
+        
         setSaveStatus("Saved");
         setTimeout(() => setSaveStatus(""), 2000);
       } catch (error) {
@@ -92,17 +96,21 @@ export default function MainDashboard() {
   }, [editorText]);
 
   const handleBlur = () => {
-    if (editorText.length > 5) {
-      apiClient('/api/entries/123/summary/generate', { method: 'POST' }).catch(() => {});
+    if (editorText.length > 5 && currentEntryId) {
+      apiClient(`/api/entries/${currentEntryId}/summary/generate`, { method: 'POST' }).catch(() => {});
     }
   };
 
   const handleUpload = async (type: string) => {
+    if (!currentEntryId) {
+      setUploadError("Save entry first");
+      return;
+    }
     setUploading(true);
     setUploadError("");
     try {
       await apiClient('/api/entries/attachments/upload-url', { method: 'POST' });
-      await apiClient('/api/entries/123/attachments', { method: 'POST', body: JSON.stringify({ type }) });
+      await apiClient(`/api/entries/${currentEntryId}/attachments`, { method: 'POST', body: JSON.stringify({ type }) });
       setAttachments(prev => [...prev, type]);
     } catch (error) {
       setUploadError("Upload Failed");
