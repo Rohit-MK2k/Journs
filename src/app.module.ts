@@ -3,6 +3,7 @@ import { CommonModule } from './common/common.module';
 import { EntriesModule } from './entries/entries.module';
 import { ChatModule } from './chat/chat.module';
 import { HabitMemoryModule } from './habit-memory/habit-memory.module';
+import { AccountModule } from './account/account.module';
 
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { DomainExceptionFilter } from './common/presentation/filters/domain-exception.filter';
@@ -14,6 +15,7 @@ import { FirebaseAuthGuard } from './common/guards/firebase-auth.guard';
     EntriesModule,
     HabitMemoryModule,
     ChatModule,
+    AccountModule,
   ],
   providers: [
     {

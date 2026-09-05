@@ -11,8 +11,26 @@ export class EntriesController {
     return this.entryService.createEntry(req.user.uid, dto.text, dto.attachments);
   }
 
-  @Get('timeline')
+  @Post('autosave')
+  async autosaveEntry(
+    @Req() req: any, 
+    @Body('entryId') entryId: string,
+    @Body('text') text: string,
+    @Body('clientTimestamp') clientTimestampStr: string
+  ) {
+    const ts = clientTimestampStr ? new Date(clientTimestampStr) : new Date();
+    return this.entryService.autosave(req.user.uid, entryId, text || '', ts);
+  }
+
+  @Get()
   async getTimeline(@Req() req: any) {
-    return this.entryService.getTimeline(req.user.uid);
+    // Basic pagination placeholder (getTimeline already returns array)
+    const timeline = await this.entryService.getTimeline(req.user.uid);
+    return {
+      data: timeline,
+      meta: {
+        total: timeline.length,
+      }
+    };
   }
 }

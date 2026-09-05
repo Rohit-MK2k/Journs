@@ -55,7 +55,18 @@ describe('EntriesController', () => {
       const result = await controller.getTimeline(mockReq);
 
       expect(service.getTimeline).toHaveBeenCalledWith('user123');
-      expect(result).toBe(expectedResult);
+      expect(result).toEqual({ data: expectedResult, meta: { total: expectedResult.length } });
+    });
+  });
+
+  describe('autosaveEntry', () => {
+    it('should call autosave on service', async () => {
+      const mockReq = { user: { uid: 'user123' } };
+      service.autosave = jest.fn().mockResolvedValue({ id: 'e1' });
+      const ts = new Date().toISOString();
+      const res = await controller.autosaveEntry(mockReq, 'e1', 'new text', ts);
+      expect(service.autosave).toHaveBeenCalledWith('user123', 'e1', 'new text', new Date(ts));
+      expect(res).toEqual({ id: 'e1' });
     });
   });
 });

@@ -8,8 +8,31 @@ export class FirestoreEntryRepository implements EntryRepository {
     return getFirestore();
   }
 
+  private getCollection(uid: string) {
+    return this.getDb().collection(`users/${uid}/entries`);
+  }
+
+  private mapDocToEntry(id: string, data: any): Entry {
+    return {
+      ...data,
+      id,
+      date: data.date.toDate ? data.date.toDate() : new Date(data.date),
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+    };
+  }
+
+  async deleteAll(uid: string): Promise<void> {
+    const snapshot = await this.getCollection(uid).get();
+    const batch = getFirestore().batch();
+    snapshot.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+  }
+
   async save(uid: string, input: CreateEntryInput): Promise<Entry> {
-    const docRef = this.getDb().collection(`users/${uid}/entries`).doc();
+    const docRef = this.getCollection(uid).doc();
     const now = new Date();
     
     const entry: Entry = {

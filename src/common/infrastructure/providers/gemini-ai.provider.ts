@@ -80,4 +80,19 @@ If they share something significant, you may suggest saving it as a draft.`;
       return { topics: [], frequency: 'unknown', tone: 'neutral' };
     }
   }
+
+  async extractSemanticChips(query: string, documentText: string): Promise<string[]> {
+    const prompt = `Extract exactly 3 concise tags/chips from the following journal entry that match this search query: "${query}". Output as a comma-separated list without quotes.\n\n${documentText}`;
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: prompt,
+      });
+      const text = response.text || '';
+      return text.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
+    } catch (e) {
+      this.logger.error('Failed to extract semantic chips', e);
+      return ['semantic', 'match', query.split(' ')[0] || 'result'];
+    }
+  }
 }

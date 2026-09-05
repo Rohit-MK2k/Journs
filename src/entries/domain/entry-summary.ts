@@ -4,4 +4,6 @@ export interface EntrySummary {
   date: Date;
   /** AI-generated 1-line gist of the entry. */
   preview: string;
+  wordCount: number;
+  hasAttachments: boolean;
 }

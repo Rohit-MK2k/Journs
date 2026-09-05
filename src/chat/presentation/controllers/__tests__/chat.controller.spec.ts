@@ -41,7 +41,9 @@ describe('ChatController', () => {
     it('should call sendMessage', async () => {
       service.sendMessage.mockResolvedValue({} as any);
       const dto: SendMessageDto = { message: 'hello', mode: 'text' };
-      await controller.sendMessage({ user: { uid: 'u1' } }, dto);
+      const mockRes = { setHeader: jest.fn(), write: jest.fn(), end: jest.fn() };
+      await controller.sendMessage({ user: { uid: 'u1' } }, dto, mockRes);
+      expect(mockRes.write).toHaveBeenCalled();
       expect(service.sendMessage).toHaveBeenCalledWith('u1', 'hello', 'text');
     });
   });
