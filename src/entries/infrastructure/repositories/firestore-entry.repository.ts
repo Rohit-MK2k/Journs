@@ -45,7 +45,7 @@ export class FirestoreEntryRepository implements EntryRepository {
         id: randomUUID(),
         entryId: docRef.id,
         createdAt: now,
-      })),
+      })) as any,
     };
     
     await docRef.set(entry);
