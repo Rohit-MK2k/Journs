@@ -97,19 +97,58 @@ If they share something significant, you may suggest saving it as a draft.`;
   }
 
   async generateSummary(text: string): Promise<string> {
-    return this.summarize(text);
+    const systemInstruction = "You are a journaling assistant. Read the following text and provide a very short, 1-line gist summary. Return only the summary text without quotes.";
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: text,
+        config: { systemInstruction },
+      });
+      return response.text?.trim() || 'No summary generated.';
+    } catch (e) {
+      this.logger.error('Failed to generate summary', e);
+      return 'No summary generated.';
+    }
   }
 
-  async processChatTurn(history: import('../../../chat/domain/chat-session').ChatMessage[], newText: string, contextEntries: Entry[]): Promise<{ replyText: string; extractedDraft?: string }> {
-    const prompt = `Context: ${contextEntries.map(e => e.text).join('\n---\n')}\nUser: ${newText}`;
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-1.5-pro',
-      contents: prompt,
-    });
-    const replyText = response.text || 'I understand.';
-    
-    // Naive extraction logic for the sake of the mock
-    const extractedDraft = newText.length > 50 ? `Draft: ${newText.substring(0, 50)}...` : undefined;
-    return { replyText, extractedDraft };
+  async processChatTurn(
+    history: import('../../../chat/domain/chat-session').ChatMessage[],
+    newText: string,
+    contextEntries: Entry[]
+  ): Promise<{ replyText: string; extractedDraft?: string }> {
+    const contextString = contextEntries.length 
+      ? `Relevant past journal entries context:\n${contextEntries.map((e, i) => `[Entry ${i+1}]: ${e.text}`).join('\n\n')}\n\n`
+      : 'No specific relevant past entries.\n\n';
+
+    const historyString = history.length
+      ? `Conversation History:\n${history.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n')}\n\n`
+      : '';
+
+    const systemInstruction = `You are an empathetic, insightful journaling companion. 
+Use the provided context and history to respond thoughtfully to the user.
+If the user shares something substantial that sounds like it should be saved as a journal entry, extract it into 'extractedDraft'. Otherwise, set it to null.
+Respond strictly in JSON format matching the schema: { "replyText": string, "extractedDraft": string | null }`;
+
+    const prompt = `${contextString}${historyString}USER: ${newText}`;
+
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      const parsed = JSON.parse(response.text || '{}');
+      return {
+        replyText: parsed.replyText || 'I understand.',
+        extractedDraft: parsed.extractedDraft || undefined,
+      };
+    } catch (e) {
+      this.logger.error('Failed to process chat turn', e);
+      return { replyText: 'Sorry, I am having trouble processing that.' };
+    }
   }
 }

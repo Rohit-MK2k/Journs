@@ -44,4 +44,18 @@ describe('GeminiAIProvider', () => {
     expect(result.frequency).toBe('daily');
     expect(result.tone).toBe('sad');
   });
+
+  it('should generate summary', async () => {
+    mockGenerateContent.mockResolvedValueOnce({ text: 'A short summary.' });
+    const res = await provider.generateSummary('Long entry text...');
+    expect(res).toBe('A short summary.');
+    expect(mockGenerateContent).toHaveBeenCalled();
+  });
+
+  it('should process chat turn', async () => {
+    mockGenerateContent.mockResolvedValueOnce({ text: JSON.stringify({ replyText: 'Hi', extractedDraft: 'draft text' }) });
+    const res = await provider.processChatTurn([], 'hello', []);
+    expect(res.replyText).toBe('Hi');
+    expect(res.extractedDraft).toBe('draft text');
+  });
 });
