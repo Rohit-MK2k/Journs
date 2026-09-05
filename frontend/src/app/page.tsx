@@ -4,35 +4,32 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { apiClient } from "@/lib/apiClient";
+import useSWR from "swr";
 
-// Mock Data (will be replaced by SWR in full integration)
-const MOCK_PAST_ENTRIES = [
-  {
-    id: "1",
-    relativeDate: "YESTERDAY",
-    fullDate: "Tuesday, September 3, 2024",
-    aiSummary: "Walked through the park after rain and outlined architecture decisions for the new project.",
-    snippet: "The fog was heavy this morning, but by the time I hit Golden Gate Park, the sun was breaking through. I realized that the complexity of the current system is mostly in how we handle state. If we just strip it back...",
-    wordCount: 114,
-    readTime: "1 min read",
-    attachments: { voice: true, location: "Golden Gate Park, SF" }
-  },
-  {
-    id: "2",
-    relativeDate: "MONDAY",
-    fullDate: "Monday, September 2, 2024",
-    aiSummary: "Feeling overwhelmed by project scope, decided to break things down into smaller tasks.",
-    snippet: "Sitting at Blue Bottle again. I need to stop thinking about the entire application at once. It's paralyzing. Today's goal is just to get the auth flow working. Everything else can wait...",
-    wordCount: 82,
-    readTime: "1 min read",
-    attachments: { location: "Blue Bottle Coffee, SF" }
-  }
-];
+export type JournalEntry = {
+  id: string;
+  relativeDate: string;
+  fullDate: string;
+  aiSummary: string;
+  snippet: string;
+  wordCount: number;
+  readTime: string;
+  attachments: { voice?: boolean; location?: string };
+};
+
+const fetcher = async (url: string) => {
+  const res = await apiClient(url);
+  return res.json();
+};
 
 export default function MainDashboard() {
   const [editorText, setEditorText] = useState("");
   const [saveStatus, setSaveStatus] = useState<"Saving..." | "Saved" | "Sync Failed" | "">("");
-  const [expandedEntry, setExpandedEntry] = useState<typeof MOCK_PAST_ENTRIES[0] | null>(null);
+  const [expandedEntry, setExpandedEntry] = useState<JournalEntry | null>(null);
+
+  const { data: entries, error: entriesError, isLoading: entriesLoading } = useSWR<JournalEntry[]>('/api/entries', fetcher, {
+    errorRetryCount: 2
+  });
   
   // Attachments State
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -277,7 +274,18 @@ export default function MainDashboard() {
         </h2>
         
         <div className="flex flex-col gap-4">
-          {MOCK_PAST_ENTRIES.map(entry => (
+          {entriesLoading && (
+            <div className="animate-pulse flex flex-col gap-4" data-testid="entries-skeleton">
+              <div className="h-32 bg-surface border border-border rounded-xl"></div>
+              <div className="h-32 bg-surface border border-border rounded-xl"></div>
+            </div>
+          )}
+          {entriesError && (
+            <div className="text-red-500 text-body-md bg-red-500/10 p-4 rounded-xl border border-red-500/20" data-testid="entries-error">
+              Failed to load recent entries.
+            </div>
+          )}
+          {entries && entries.map(entry => (
             <button 
               key={entry.id}
               onClick={() => setExpandedEntry(entry)}
