@@ -33,8 +33,41 @@ export default function MainDashboard() {
   const [editorText, setEditorText] = useState("");
   const [saveStatus, setSaveStatus] = useState<"Saving..." | "Saved" | "Sync Failed" | "">("");
   const [expandedEntry, setExpandedEntry] = useState<typeof MOCK_PAST_ENTRIES[0] | null>(null);
+  
+  // Attachments State
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  // Idle Prompt State
+  const [isIdle, setIsIdle] = useState(false);
+  const [promptIndex, setPromptIndex] = useState(0);
+  const IDLE_PROMPTS = ["What's on your mind today?", "How are you feeling?", "Write about a small win."];
+
   const isFirstRender = useRef(true);
   
+  // Idle detection
+  useEffect(() => {
+    if (editorText) {
+      setIsIdle(false);
+      return;
+    }
+    const idleTimer = setTimeout(() => setIsIdle(true), 5000);
+    return () => clearTimeout(idleTimer);
+  }, [editorText]);
+
+  // Prompt rotation
+  useEffect(() => {
+    if (!isIdle) {
+      setPromptIndex(0);
+      return;
+    }
+    const rotation = setInterval(() => {
+      setPromptIndex(i => (i + 1) % IDLE_PROMPTS.length);
+    }, 3000);
+    return () => clearInterval(rotation);
+  }, [isIdle]);
+
   // Autosave integration logic
   useEffect(() => {
     if (isFirstRender.current) {
@@ -60,6 +93,26 @@ export default function MainDashboard() {
     
     return () => clearTimeout(timeout);
   }, [editorText]);
+
+  const handleBlur = () => {
+    if (editorText.length > 5) {
+      apiClient('/api/entries/123/summary/generate', { method: 'POST' }).catch(() => {});
+    }
+  };
+
+  const handleUpload = async (type: string) => {
+    setUploading(true);
+    setUploadError("");
+    try {
+      await apiClient('/api/entries/attachments/upload-url', { method: 'POST' });
+      await apiClient('/api/entries/123/attachments', { method: 'POST', body: JSON.stringify({ type }) });
+      setAttachments(prev => [...prev, type]);
+    } catch (error) {
+      setUploadError("Upload Failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // Layout wrapper (680px canal)
   const renderLayout = (children: React.ReactNode) => (
@@ -183,21 +236,37 @@ export default function MainDashboard() {
           autoFocus
           value={editorText}
           onChange={(e) => setEditorText(e.target.value)}
-          placeholder="What's on your mind today?"
-          className="w-full bg-transparent resize-none outline-none text-body-lg text-primary placeholder:text-tertiary leading-relaxed min-h-[150px]"
+          onBlur={handleBlur}
+          placeholder={isIdle ? IDLE_PROMPTS[promptIndex] : "What's on your mind today?"}
+          className="w-full bg-transparent resize-none outline-none text-body-lg text-primary placeholder:text-tertiary leading-relaxed min-h-[150px] transition-all"
         />
         
         {/* Attachment Controls */}
-        <div className="flex items-center gap-4 pt-4 text-tertiary">
-          <button className="hover:text-primary transition-colors p-1" aria-label="Add Voice">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-          </button>
-          <button className="hover:text-primary transition-colors p-1" aria-label="Add Photo">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
-          </button>
-          <button className="hover:text-primary transition-colors p-1" aria-label="Add Location">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-          </button>
+        <div className="flex flex-col gap-2">
+          {/* Display attached chips */}
+          <div className="flex flex-wrap gap-2">
+            {attachments.map(att => (
+              <span key={att} className="px-3 py-1 bg-subtle text-primary border border-border rounded-full text-caption-sm flex items-center gap-1">
+                {att === 'voice' && '🎙 Voice'}
+                {att === 'photo' && '📸 Photo'}
+                {att === 'location' && '📍 Location'}
+              </span>
+            ))}
+            {uploading && <span className="px-3 py-1 bg-subtle text-tertiary border border-border rounded-full text-caption-sm animate-pulse">Uploading...</span>}
+            {uploadError && <span className="px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/20 rounded-full text-caption-sm">{uploadError}</span>}
+          </div>
+
+          <div className="flex items-center gap-4 pt-2 text-tertiary">
+            <button onClick={() => handleUpload('voice')} disabled={uploading} className="hover:text-primary transition-colors p-1 disabled:opacity-50" aria-label="Add Voice">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            </button>
+            <button onClick={() => handleUpload('photo')} disabled={uploading} className="hover:text-primary transition-colors p-1 disabled:opacity-50" aria-label="Add Photo">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            </button>
+            <button onClick={() => handleUpload('location')} disabled={uploading} className="hover:text-primary transition-colors p-1 disabled:opacity-50" aria-label="Add Location">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            </button>
+          </div>
         </div>
       </section>
 
