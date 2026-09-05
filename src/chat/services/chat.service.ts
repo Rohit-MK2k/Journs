@@ -82,7 +82,22 @@ export class ChatService {
       throw new ConflictError('No active chat session. Call startSession first');
     }
 
-    return this.aiProvider.chat(session, message);
+    // Initialize history if missing
+    if (!session.history) {
+      session.history = [];
+    }
+
+    const recentEntries = await this.repo.listRecent(uid, new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)); // Last 7 days
+
+    const { replyText, extractedDraft } = await this.aiProvider.processChatTurn(session.history, message, recentEntries);
+
+    session.history.push({ role: 'user', text: message, timestamp: new Date() });
+    session.history.push({ role: 'ai', text: replyText, timestamp: new Date() });
+
+    return {
+      message: replyText,
+      draft: extractedDraft ? { text: extractedDraft, sourceContext: '' } : undefined,
+    };
   }
 
   /**

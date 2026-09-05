@@ -95,4 +95,21 @@ If they share something significant, you may suggest saving it as a draft.`;
       return ['semantic', 'match', query.split(' ')[0] || 'result'];
     }
   }
+
+  async generateSummary(text: string): Promise<string> {
+    return this.summarize(text);
+  }
+
+  async processChatTurn(history: import('../../../chat/domain/chat-session').ChatMessage[], newText: string, contextEntries: Entry[]): Promise<{ replyText: string; extractedDraft?: string }> {
+    const prompt = `Context: ${contextEntries.map(e => e.text).join('\n---\n')}\nUser: ${newText}`;
+    const response = await this.ai.models.generateContent({
+      model: 'gemini-1.5-pro',
+      contents: prompt,
+    });
+    const replyText = response.text || 'I understand.';
+    
+    // Naive extraction logic for the sake of the mock
+    const extractedDraft = newText.length > 50 ? `Draft: ${newText.substring(0, 50)}...` : undefined;
+    return { replyText, extractedDraft };
+  }
 }

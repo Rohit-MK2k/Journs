@@ -59,6 +59,8 @@ describe('ChatService', () => {
       extractContext: jest.fn(),
       deriveHabitMemory: jest.fn(),
       extractSemanticChips: jest.fn(),
+      generateSummary: jest.fn(),
+      processChatTurn: jest.fn(),
     };
 
     service = new ChatService(repo, habitStore, aiProvider);
@@ -113,42 +115,51 @@ describe('ChatService', () => {
       await service.startSession('user-1');
     });
 
-    it('should send a message and return AI response (text mode)', async () => {
-      const response: ChatResponse = { message: 'I hear you.' };
-      aiProvider.chat.mockResolvedValue(response);
+    it('should process a chat turn and append the AI reply to the session history', async () => {
+      const response = { replyText: 'I hear you.', extractedDraft: undefined };
+      aiProvider.processChatTurn = jest.fn().mockResolvedValue(response);
+      repo.listRecent.mockResolvedValue([]);
 
       const result = await service.sendMessage('user-1', 'I feel good today', 'text');
 
-      expect(result).toEqual(response);
-      expect(aiProvider.chat).toHaveBeenCalledWith(
-        expect.objectContaining({ uid: 'user-1' }),
+      expect(result.message).toEqual(response.replyText);
+      expect(result.draft).toBeUndefined();
+      
+      expect(aiProvider.processChatTurn).toHaveBeenCalledWith(
+        expect.any(Array),
         'I feel good today',
+        []
       );
     });
 
-    it('should send a message and return AI response (voice mode)', async () => {
-      const response: ChatResponse = { message: 'Tell me more.' };
-      aiProvider.chat.mockResolvedValue(response);
-
-      const result = await service.sendMessage('user-1', 'spoken words', 'voice');
-
-      expect(result).toEqual(response);
-    });
-
-    it('should return response with draft when AI detects journal-worthy moment', async () => {
-      const draft: EntryDraft = {
-        text: 'Got a promotion today.',
-        sourceContext: 'user mentioned promotion',
+    it('should correctly attach an EntryDraft to the response if the AI extracts one from the conversation', async () => {
+      const draftText = 'Got a promotion today.';
+      const response = {
+        replyText: 'That sounds significant! Want to save this?',
+        extractedDraft: draftText,
       };
-      const response: ChatResponse = {
-        message: 'That sounds significant! Want to save this?',
-        draft,
-      };
-      aiProvider.chat.mockResolvedValue(response);
+      aiProvider.processChatTurn = jest.fn().mockResolvedValue(response);
+      repo.listRecent.mockResolvedValue([]);
 
       const result = await service.sendMessage('user-1', 'I got promoted!', 'text');
 
-      expect(result.draft).toEqual(draft);
+      expect(result.draft).toBeDefined();
+      expect(result.draft!.text).toEqual(draftText);
+    });
+
+    it('should retrieve recent entries and pass them to the AIProvider as context', async () => {
+      const recentEntries = [makeEntry({ id: 'recent-1' })];
+      repo.listRecent.mockResolvedValue(recentEntries);
+      aiProvider.processChatTurn = jest.fn().mockResolvedValue({ replyText: 'ok' });
+
+      await service.sendMessage('user-1', 'hello', 'text');
+
+      expect(repo.listRecent).toHaveBeenCalledWith('user-1', expect.any(Date));
+      expect(aiProvider.processChatTurn).toHaveBeenCalledWith(
+        expect.any(Array),
+        'hello',
+        recentEntries
+      );
     });
 
     it('should throw when uid is empty', async () => {
