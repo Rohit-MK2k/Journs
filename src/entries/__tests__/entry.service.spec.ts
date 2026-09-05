@@ -42,6 +42,8 @@ describe('EntryService', () => {
       extractContext: jest.fn(),
       deriveHabitMemory: jest.fn(),
       extractSemanticChips: jest.fn(),
+      generateSummary: jest.fn(),
+      processChatTurn: jest.fn(),
     };
 
     vectorSearch = {
@@ -304,6 +306,105 @@ describe('EntryService', () => {
 
       expect(result).toEqual([]);
       expect(aiProvider.summarize).not.toHaveBeenCalled();
+    });
+  });
+
+  // --- generateAndSaveSummary ---
+
+  describe('generateAndSaveSummary', () => {
+    it('should generate and save a summary for a valid entry', async () => {
+      const entry = makeEntry({ text: 'This is a long enough text.' });
+      repo.findById.mockResolvedValue(entry);
+      aiProvider.generateSummary.mockResolvedValue('A generated summary');
+
+      await service.generateAndSaveSummary('user-1', 'entry-1');
+
+      expect(aiProvider.generateSummary).toHaveBeenCalledWith('This is a long enough text.');
+      expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', { summary: 'A generated summary' });
+    });
+
+    it('should not generate a summary if the entry text is empty or too short', async () => {
+      const entry = makeEntry({ text: 'short' });
+      repo.findById.mockResolvedValue(entry);
+
+      await service.generateAndSaveSummary('user-1', 'entry-1');
+
+      expect(aiProvider.generateSummary).not.toHaveBeenCalled();
+      expect(repo.update).not.toHaveBeenCalled();
+    });
+
+    it('should throw an error if the entry does not exist or belongs to another user', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.generateAndSaveSummary('user-1', 'entry-1')).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  // --- addAttachment / removeAttachment ---
+
+  describe('attachments', () => {
+    it('should successfully add a valid Voice attachment to an existing entry', async () => {
+      const entry = makeEntry();
+      repo.findById.mockResolvedValue(entry);
+      
+      const newAttachment = await service.addAttachment('user-1', 'entry-1', {
+        type: 'voice',
+        url: 'http://example.com/voice.m4a',
+        duration: 120
+      } as any);
+
+      expect(newAttachment.id).toBeDefined();
+      expect(newAttachment.type).toBe('voice');
+      expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', {
+        attachments: [newAttachment]
+      });
+    });
+
+    it('should successfully add a valid Location attachment to an existing entry', async () => {
+      const entry = makeEntry();
+      repo.findById.mockResolvedValue(entry);
+      
+      const newAttachment = await service.addAttachment('user-1', 'entry-1', {
+        type: 'location',
+        lat: 10,
+        lng: 20,
+        locationLabel: 'Home'
+      } as any);
+
+      expect(newAttachment.id).toBeDefined();
+      expect(newAttachment.type).toBe('location');
+      expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', {
+        attachments: [newAttachment]
+      });
+    });
+
+    it('should throw an error when attempting to add an attachment to an unauthorized or non-existent entry', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.addAttachment('user-1', 'entry-1', { type: 'voice', url: 'x' } as any))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should successfully remove an attachment by its ID', async () => {
+      const entry = makeEntry({
+        attachments: [
+          { id: 'att-1', entryId: 'entry-1', type: 'voice', url: 'x', createdAt: new Date() } as any,
+          { id: 'att-2', entryId: 'entry-1', type: 'photo', url: 'y', createdAt: new Date() } as any,
+        ]
+      });
+      repo.findById.mockResolvedValue(entry);
+
+      await service.removeAttachment('user-1', 'entry-1', 'att-1');
+
+      expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', {
+        attachments: expect.arrayContaining([
+          expect.objectContaining({ id: 'att-2' })
+        ])
+      });
+      // Ensure att-1 is not in the array
+      const updateCall = repo.update.mock.calls[0][2];
+      expect(updateCall.attachments).toHaveLength(1);
+      expect(updateCall.attachments![0].id).toBe('att-2');
     });
   });
 });

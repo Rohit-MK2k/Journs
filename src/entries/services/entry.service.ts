@@ -162,6 +162,66 @@ export class EntryService {
     );
   }
 
+  /**
+   * Generates a 1-line gist of the entry asynchronously and stores it.
+   * Useful to offload expensive generation from rapid autosaves.
+   */
+  async generateAndSaveSummary(uid: string, entryId: string): Promise<void> {
+    const entry = await this.repo.findById(uid, entryId);
+    if (!entry || entry.uid !== uid) {
+      throw new NotFoundError(`Entry not found: ${entryId}`);
+    }
+
+    if (!entry.text || entry.text.length < 10) {
+      return;
+    }
+
+    const summary = await this.aiProvider.generateSummary(entry.text);
+    await this.repo.update(uid, entryId, { summary });
+  }
+
+  /**
+   * Adds a new attachment to the given entry.
+   */
+  async addAttachment(uid: string, entryId: string, attachmentInput: CreateAttachmentInput): Promise<Attachment> {
+    const entry = await this.repo.findById(uid, entryId);
+    if (!entry || entry.uid !== uid) {
+      throw new NotFoundError(`Entry not found: ${entryId}`);
+    }
+
+    // Generate pseudo-random UUID for the attachment
+    const attachmentId = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    
+    const newAttachment = {
+      ...attachmentInput,
+      id: attachmentId,
+      entryId,
+      createdAt: new Date(),
+    } as Attachment;
+
+    const attachments = [...(entry.attachments || []), newAttachment];
+    
+    await this.repo.update(uid, entryId, { attachments });
+    return newAttachment;
+  }
+
+  /**
+   * Removes an attachment by ID from the given entry.
+   */
+  async removeAttachment(uid: string, entryId: string, attachmentId: string): Promise<void> {
+    const entry = await this.repo.findById(uid, entryId);
+    if (!entry || entry.uid !== uid) {
+      throw new NotFoundError(`Entry not found: ${entryId}`);
+    }
+
+    const initialCount = entry.attachments.length;
+    const attachments = entry.attachments.filter(a => a.id !== attachmentId);
+
+    if (attachments.length !== initialCount) {
+      await this.repo.update(uid, entryId, { attachments });
+    }
+  }
+
   /** Normalize a Date to midnight (start of day) for calendar-day comparison. */
   private startOfDay(date: Date): Date {
     const d = new Date(date);

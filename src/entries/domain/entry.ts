@@ -9,6 +9,8 @@ export interface Entry {
   attachments: Attachment[];
   /** Whether this entry has been indexed in the vector search store. */
   vectorIndexed: boolean;
+  /** AI-generated 1-line gist of the entry. */
+  summary?: string;
   /** Timestamp provided by the client for the most recent autosave to prevent race conditions. */
   lastAutosaveAt?: Date;
   createdAt: Date;
@@ -16,6 +18,6 @@ export interface Entry {
 }
 
 /** Input type for creating a new journal entry. */
-export type CreateEntryInput = Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'lastAutosaveAt'> & {
+export type CreateEntryInput = Omit<Entry, 'id' | 'createdAt' | 'updatedAt' | 'attachments' | 'lastAutosaveAt' | 'summary'> & {
   attachments: CreateAttachmentInput[];
 };

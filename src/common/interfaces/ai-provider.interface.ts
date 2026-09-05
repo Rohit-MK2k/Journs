@@ -22,4 +22,10 @@ export interface AIProvider {
 
   /** Extract 2-3 key phrases from a document that relate to a user's search query. */
   extractSemanticChips(query: string, documentText: string): Promise<string[]>;
+
+  /** Generate a 1-line gist of the entry asynchronously. */
+  generateSummary(text: string): Promise<string>;
+
+  /** Process a conversational turn with the AI companion. */
+  processChatTurn(history: import('../../chat/domain/chat-session').ChatMessage[], newText: string, contextEntries: Entry[]): Promise<{ replyText: string; extractedDraft?: string }>;
 }
