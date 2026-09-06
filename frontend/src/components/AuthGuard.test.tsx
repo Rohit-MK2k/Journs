@@ -7,10 +7,12 @@ jest.mock('next/navigation', () => ({
 }));
 
 let mockUser: any = null;
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({
+jest.mock('../lib/firebase', () => ({
+  auth: {
     get currentUser() { return mockUser; }
-  })),
+  },
+  googleProvider: {},
+  app: {},
 }));
 
 describe('Suite 7: Protected Routes & Auth Guards', () => {

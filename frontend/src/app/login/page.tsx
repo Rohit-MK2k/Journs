@@ -2,18 +2,29 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithRedirect } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  React.useEffect(() => {
+    if (typeof auth?.onAuthStateChanged === 'function') {
+      const unsubscribe = auth.onAuthStateChanged((user) => {
+        if (user) {
+          router?.push?.("/");
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [router]);
+
   const handleLogin = async () => {
     setLoading(true);
     try {
-      await signInWithPopup(auth, googleProvider);
-      router.push("/");
+      await signInWithRedirect(auth, googleProvider);
+      // Redirect happens automatically, no need to router.push("/") here
     } catch (error) {
       console.error("Login failed:", error);
       setLoading(false);
