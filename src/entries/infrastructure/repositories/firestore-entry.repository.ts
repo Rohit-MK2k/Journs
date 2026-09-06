@@ -16,10 +16,26 @@ export class FirestoreEntryRepository implements EntryRepository {
     return {
       ...data,
       id,
-      date: data.date.toDate ? data.date.toDate() : new Date(data.date),
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt)
+      date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : new Date()),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt ? new Date(data.updatedAt) : new Date()),
     };
+  }
+
+  private removeUndefined<T>(obj: T): T {
+    if (obj === null || typeof obj !== 'object' || obj instanceof Date) {
+      return obj;
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.removeUndefined(item)) as any;
+    }
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        clean[key] = this.removeUndefined(value);
+      }
+    }
+    return clean as T;
   }
 
   async deleteAll(uid: string): Promise<void> {
@@ -40,7 +56,7 @@ export class FirestoreEntryRepository implements EntryRepository {
       id: docRef.id,
       createdAt: now,
       updatedAt: now,
-      attachments: input.attachments.map(att => ({
+      attachments: (input.attachments || []).map(att => ({
         ...att,
         id: randomUUID(),
         entryId: docRef.id,
@@ -48,7 +64,7 @@ export class FirestoreEntryRepository implements EntryRepository {
       })) as any,
     };
     
-    await docRef.set(entry);
+    await docRef.set(this.removeUndefined(entry));
     return entry;
   }
 
@@ -56,11 +72,7 @@ export class FirestoreEntryRepository implements EntryRepository {
     const doc = await this.getDb().collection(`users/${uid}/entries`).doc(entryId).get();
     if (!doc.exists) return null;
     
-    const data = doc.data() as any;
-    return {
-      ...data,
-      date: data.date.toDate ? data.date.toDate() : new Date(data.date)
-    };
+    return this.mapDocToEntry(doc.id, doc.data());
   }
 
   async findByDate(uid: string, date: Date): Promise<Entry | null> {
@@ -72,11 +84,7 @@ export class FirestoreEntryRepository implements EntryRepository {
 
     if (snapshot.empty) return null;
 
-    const data = snapshot.docs[0].data() as any;
-    return {
-      ...data,
-      date: data.date.toDate ? data.date.toDate() : new Date(data.date)
-    };
+    return this.mapDocToEntry(snapshot.docs[0].id, snapshot.docs[0].data());
   }
 
   async listByUser(uid: string): Promise<Entry[]> {
@@ -85,18 +93,12 @@ export class FirestoreEntryRepository implements EntryRepository {
       .orderBy('date', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => {
-      const data = doc.data() as any;
-      return {
-        ...data,
-        date: data.date.toDate ? data.date.toDate() : new Date(data.date)
-      };
-    });
+    return snapshot.docs.map(doc => this.mapDocToEntry(doc.id, doc.data()));
   }
 
   async update(uid: string, entryId: string, updates: Partial<Entry>): Promise<Entry> {
     const docRef = this.getDb().collection(`users/${uid}/entries`).doc(entryId);
-    await docRef.update(updates as any);
+    await docRef.update(this.removeUndefined(updates) as any);
     const updated = await this.findById(uid, entryId);
     if (!updated) throw new Error('Update failed');
     return updated;
@@ -109,13 +111,7 @@ export class FirestoreEntryRepository implements EntryRepository {
       .orderBy('date', 'desc')
       .get();
 
-    return snapshot.docs.map(doc => {
-      const data = doc.data() as any;
-      return {
-        ...data,
-        date: data.date.toDate ? data.date.toDate() : new Date(data.date)
-      };
-    });
+    return snapshot.docs.map(doc => this.mapDocToEntry(doc.id, doc.data()));
   }
 
   async delete(uid: string, entryId: string): Promise<void> {

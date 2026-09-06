@@ -15,7 +15,7 @@ export class EntriesController {
 
   @Post()
   async createEntry(@Req() req: any, @Body() dto: CreateEntryDto) {
-    return this.entryService.createEntry(req.user.uid, dto.text, dto.attachments);
+    return this.entryService.createEntry(req.user.uid, dto.text, dto.attachments as any);
   }
 
   @Post('autosave')

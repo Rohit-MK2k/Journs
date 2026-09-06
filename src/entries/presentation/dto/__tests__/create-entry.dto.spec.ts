@@ -1,6 +1,11 @@
 import 'reflect-metadata';
 import { validate } from 'class-validator';
-import { CreateEntryDto, AttachmentDto } from '../create-entry.dto';
+import {
+  CreateEntryDto,
+  AttachmentPhotoDto,
+  AttachmentVoiceDto,
+  AttachmentLocationDto,
+} from '../create-entry.dto';
 
 describe('CreateEntryDto', () => {
   it('should validate a valid dto without attachments', async () => {
@@ -15,10 +20,19 @@ describe('CreateEntryDto', () => {
     const dto = new CreateEntryDto();
     dto.text = 'This is a journal entry.';
     
-    const attachment = new AttachmentDto();
-    attachment.type = 'photo';
-    attachment.url = 'https://example.com/photo.jpg';
-    dto.attachments = [attachment];
+    const photo = new AttachmentPhotoDto();
+    photo.type = 'photo';
+    photo.url = 'https://example.com/photo.jpg';
+    photo.filePath = 'users/u1/photo.jpg';
+    photo.fileId = 'f1';
+
+    const location = new AttachmentLocationDto();
+    location.type = 'location';
+    location.lat = 37.7749;
+    location.lng = -122.4194;
+    location.locationLabel = 'San Francisco, CA';
+
+    dto.attachments = [photo, location];
 
     const errors = await validate(dto);
     expect(errors.length).toBe(0);
@@ -37,10 +51,12 @@ describe('CreateEntryDto', () => {
     const dto = new CreateEntryDto();
     dto.text = 'Valid text';
     
-    const attachment = new AttachmentDto();
-    attachment.type = 'invalid_type' as any;
-    attachment.url = 'https://example.com/photo.jpg';
-    dto.attachments = [attachment];
+    const photo = new AttachmentPhotoDto();
+    photo.type = 'invalid_type' as any;
+    photo.url = 'https://example.com/photo.jpg';
+    photo.filePath = 'users/u1/photo.jpg';
+    photo.fileId = 'f1';
+    dto.attachments = [photo];
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);

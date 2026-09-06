@@ -1,22 +1,56 @@
-import { IsString, IsNotEmpty, IsArray, ValidateNested, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsArray, ValidateNested, IsOptional, Equals, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
-export class AttachmentDto {
-  @IsString()
-  @IsIn(['voice', 'photo', 'location'])
-  type: 'voice' | 'photo' | 'location';
+export class AttachmentPhotoDto {
+  @Equals('photo')
+  type: 'photo';
 
   @IsString()
+  @IsNotEmpty()
   url: string;
 
   @IsString()
-  @IsOptional()
-  transcript?: string;
+  @IsNotEmpty()
+  filePath: string;
 
   @IsString()
-  @IsOptional()
-  locationLabel?: string;
+  @IsNotEmpty()
+  fileId: string;
 }
+
+export class AttachmentVoiceDto {
+  @Equals('voice')
+  type: 'voice';
+
+  @IsString()
+  @IsNotEmpty()
+  url: string;
+
+  @IsString()
+  @IsNotEmpty()
+  filePath: string;
+
+  @IsString()
+  @IsNotEmpty()
+  fileId: string;
+}
+
+export class AttachmentLocationDto {
+  @Equals('location')
+  type: 'location';
+
+  @IsNumber()
+  lat: number;
+
+  @IsNumber()
+  lng: number;
+
+  @IsString()
+  @IsNotEmpty()
+  locationLabel: string;
+}
+
+export type AttachmentDto = AttachmentPhotoDto | AttachmentVoiceDto | AttachmentLocationDto;
 
 export class CreateEntryDto {
   @IsString()
@@ -26,6 +60,17 @@ export class CreateEntryDto {
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
-  @Type(() => AttachmentDto)
+  @Type(() => Object, {
+    discriminator: {
+      property: 'type',
+      subTypes: [
+        { value: AttachmentPhotoDto, name: 'photo' },
+        { value: AttachmentVoiceDto, name: 'voice' },
+        { value: AttachmentLocationDto, name: 'location' },
+      ],
+    },
+    keepDiscriminatorProperty: true,
+  })
   attachments?: AttachmentDto[];
 }
+
