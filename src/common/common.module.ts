@@ -11,7 +11,12 @@ import { FirebaseStorageProvider } from './infrastructure/providers/firebase-sto
   providers: [
     {
       provide: 'GENAI_CLIENT',
-      useFactory: () => new GoogleGenAI({ vertexai: !!process.env.GCP_PROJECT_ID }),
+      useFactory: () => {
+        return new GoogleGenAI({ 
+          vertexai: false,
+          apiKey: process.env.GEMINI_API_KEY || 'dummy-dev-key-for-booting'
+        });
+      },
     },
     {
       provide: 'VERTEX_INDEX_CLIENT',

@@ -14,11 +14,16 @@ export class GeminiAIProvider implements AIProvider {
   ) {}
 
   async summarize(text: string): Promise<string> {
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-1.5-flash',
-      contents: `Summarize the following journal entry into a single concise sentence for a timeline view:\n\n${text}`,
-    });
-    return response.text || 'No summary generated.';
+    try {
+      const response = await this.ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: `Summarize the following journal entry into a single concise sentence for a timeline view:\n\n${text}`,
+      });
+      return response.text?.trim() || 'No summary generated.';
+    } catch (e) {
+      this.logger.error('Failed to summarize text', e);
+      throw e;
+    }
   }
 
   async chat(session: ChatSession, message: string): Promise<ChatResponse> {
@@ -31,7 +36,7 @@ Tone: ${session.habitMemory.tone}
 If they share something significant, you may suggest saving it as a draft.`;
 
     const response = await this.ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.6-flash',
       contents: message,
       config: {
         systemInstruction,
@@ -46,7 +51,7 @@ If they share something significant, you may suggest saving it as a draft.`;
 
   async extractContext(conversationSnippet: string): Promise<EntryDraft> {
     const response = await this.ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.6-flash',
       contents: `Extract a meaningful journal entry from the following conversation snippet. Make it read like a first-person diary entry.\n\n${conversationSnippet}`,
     });
 
@@ -61,7 +66,7 @@ If they share something significant, you may suggest saving it as a draft.`;
     const prompt = `Analyze these journal entries and output exactly valid JSON with three keys: "topics" (array of strings), "frequency" (string), "tone" (string).\n\n${textCorpus}`;
     
     const response = await this.ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3.6-flash',
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -85,7 +90,7 @@ If they share something significant, you may suggest saving it as a draft.`;
     const prompt = `Extract exactly 3 concise tags/chips from the following journal entry that match this search query: "${query}". Output as a comma-separated list without quotes.\n\n${documentText}`;
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
       });
       const text = response.text || '';
@@ -100,7 +105,7 @@ If they share something significant, you may suggest saving it as a draft.`;
     const systemInstruction = "You are a journaling assistant. Read the following text and provide a very short, 1-line gist summary. Return only the summary text without quotes.";
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.6-flash',
         contents: text,
         config: { systemInstruction },
       });
@@ -133,7 +138,7 @@ Respond strictly in JSON format matching the schema: { "replyText": string, "ext
 
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: {
           systemInstruction,

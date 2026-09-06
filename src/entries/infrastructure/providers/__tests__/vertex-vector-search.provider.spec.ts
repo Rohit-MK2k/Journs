@@ -37,11 +37,23 @@ describe('VertexAIVectorSearchProvider', () => {
     jest.clearAllMocks();
   });
 
-  it('should index entry successfully', async () => {
+  it('should index entry successfully using gemini-embedding-2', async () => {
     await expect(
       provider.indexEntry('user-1', { id: 'entry-1', text: 'test' } as any)
     ).resolves.toBeUndefined();
+    expect(mockGenAiClient.models.embedContent).toHaveBeenCalledWith({
+      model: 'gemini-embedding-2',
+      contents: 'test',
+    });
     expect(mockUpsert).toHaveBeenCalled();
+  });
+
+  it('should skip indexEntry upsert if embedding generation fails', async () => {
+    mockGenAiClient.models.embedContent.mockRejectedValueOnce(new Error('Embedding API failure'));
+    await expect(
+      provider.indexEntry('user-1', { id: 'entry-1', text: 'test' } as any)
+    ).resolves.toBeUndefined();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('should remove entry successfully', async () => {
@@ -53,8 +65,19 @@ describe('VertexAIVectorSearchProvider', () => {
 
   it('should return matching entry ids on semantic search', async () => {
     const results = await provider.semanticSearch('user-1', 'query');
+    expect(mockGenAiClient.models.embedContent).toHaveBeenCalledWith({
+      model: 'gemini-embedding-2',
+      contents: 'query',
+    });
     expect(results).toHaveLength(1);
     expect(results[0].entry.id).toBe('entry-123');
     expect(mockFind).toHaveBeenCalled();
+  });
+
+  it('should handle embedding failure gracefully in semantic search', async () => {
+    mockGenAiClient.models.embedContent.mockRejectedValueOnce(new Error('Embedding API failure'));
+    const results = await provider.semanticSearch('user-1', 'query');
+    expect(results).toEqual([]);
+    expect(mockFind).not.toHaveBeenCalled();
   });
 });

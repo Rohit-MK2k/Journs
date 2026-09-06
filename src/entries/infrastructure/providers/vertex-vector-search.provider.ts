@@ -22,6 +22,10 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
   async indexEntry(uid: string, entry: Entry): Promise<void> {
     try {
       const embedding = await this.embedText(entry.text);
+      if (!embedding.length) {
+        this.logger.warn(`Skipping vector indexing for entry ${entry.id}: embedding generation returned empty`);
+        return;
+      }
       
       const indexName = this.indexClient.indexPath(this.projectId, this.location, this.indexId);
 
@@ -74,6 +78,10 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
   async semanticSearch(uid: string, query: string): Promise<VectorSearchResult[]> {
     try {
       const embedding = await this.embedText(query);
+      if (!embedding.length) {
+        this.logger.warn('Skipping semantic search: embedding generation returned empty');
+        return [];
+      }
       const endpointName = this.matchClient.indexEndpointPath(this.projectId, this.location, this.endpointId);
 
       const [response] = await this.matchClient.findNeighbors({
@@ -123,10 +131,15 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
   }
 
   private async embedText(text: string): Promise<number[]> {
-    const response = await this.ai.models.embedContent({
-      model: 'text-embedding-004',
-      contents: text,
-    });
-    return response.embeddings?.[0]?.values || [];
+    try {
+      const response = await this.ai.models.embedContent({
+        model: 'gemini-embedding-2',
+        contents: text,
+      });
+      return response.embeddings?.[0]?.values || [];
+    } catch (e) {
+      this.logger.error('Failed to generate embedding with gemini-embedding-2', e);
+      return [];
+    }
   }
 }
