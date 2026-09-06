@@ -31,7 +31,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = process.env.PORT || process.env.BACKEND_PORT || 8000;
+  const port = process.env.BACKEND_PORT || (process.env.NODE_ENV === 'production' ? process.env.PORT : undefined) || 8000;
   await app.listen(port, '0.0.0.0');
   console.log(`Journ backend listening on port ${port}`);
 }
