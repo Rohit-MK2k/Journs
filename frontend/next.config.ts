@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
+const backendUrl = process.env.BACKEND_API_URL || "http://localhost:8000";
+
 const nextConfig: NextConfig = {
+  output: "standalone",
   async headers() {
     return [
       {
@@ -18,7 +21,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/:path*",
+        destination: `${backendUrl}/:path*`,
       },
     ];
   },
