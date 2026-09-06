@@ -58,13 +58,15 @@ export default function ChatCompanion() {
                 
                 try {
                   const data = JSON.parse(dataStr);
-                  if (data.replyText) {
-                    currentText += data.replyText;
+                  const reply = data.replyText || data.message;
+                  const draft = data.extractedDraft || data.draft;
+                  if (reply) {
+                    currentText += reply;
                     setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, text: currentText } : m));
                   }
-                  if (data.extractedDraft) {
-                    setDraftContent(data.extractedDraft);
-                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, extractedDraft: data.extractedDraft } : m));
+                  if (draft) {
+                    setDraftContent(draft);
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, extractedDraft: draft } : m));
                   }
                 } catch (e) {}
               }
@@ -73,16 +75,18 @@ export default function ChatCompanion() {
         }
       } else {
         const data = await res.json();
+        const reply = data.replyText || data.message || '';
+        const draft = data.extractedDraft || data.draft;
         
         const assistantMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
-          text: data.replyText,
-          extractedDraft: data.extractedDraft
+          text: reply,
+          extractedDraft: draft
         };
         
-        if (data.extractedDraft) {
-          setDraftContent(data.extractedDraft);
+        if (draft) {
+          setDraftContent(draft);
         }
         
         setMessages(prev => [...prev, assistantMsg]);

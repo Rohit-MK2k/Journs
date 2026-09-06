@@ -43,7 +43,7 @@ export default function SearchOverlay() {
     try {
       const res = await apiClient(`/api/search?q=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
-      setResults(data);
+      setResults(Array.isArray(data) ? data : (data.matches || []));
     } catch (err) {
       setResults([]);
     } finally {
