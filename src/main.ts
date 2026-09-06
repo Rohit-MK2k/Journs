@@ -26,8 +26,13 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.BACKEND_PORT || 8000;
-  await app.listen(port);
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
+  const port = process.env.PORT || process.env.BACKEND_PORT || 8000;
+  await app.listen(port, '0.0.0.0');
   console.log(`Journ backend listening on port ${port}`);
 }
 

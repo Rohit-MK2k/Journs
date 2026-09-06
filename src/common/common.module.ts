@@ -4,9 +4,11 @@ import { GoogleGenAI } from '@google/genai';
 import { v1 } from '@google-cloud/aiplatform';
 
 import { FirebaseStorageProvider } from './infrastructure/providers/firebase-storage.provider';
+import { HealthController } from './presentation/controllers/health.controller';
 
 @Global()
 @Module({
+  controllers: [HealthController],
   providers: [
     {
       provide: 'GENAI_CLIENT',
