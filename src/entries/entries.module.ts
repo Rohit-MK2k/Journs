@@ -6,6 +6,7 @@ import { SemanticSearchService } from './services/semantic-search.service';
 import { AttachmentCleanupCronService } from './services/attachment-cleanup-cron.service';
 import { FirestoreEntryRepository } from './infrastructure/repositories/firestore-entry.repository';
 import { FirestorePendingAttachmentRepository } from './infrastructure/repositories/firestore-pending-attachment.repository';
+import { FirestoreCosineVectorSearchProvider } from './infrastructure/providers/firestore-cosine-vector-search.provider';
 import { EntryRepository } from './interfaces/entry-repository.interface';
 import { PendingAttachmentRepository } from './interfaces/pending-attachment-repository.interface';
 import { AIProvider } from '../common/interfaces/ai-provider.interface';
@@ -21,6 +22,10 @@ import { VectorSearchProvider } from './interfaces/vector-search-provider.interf
     {
       provide: 'PendingAttachmentRepository',
       useClass: FirestorePendingAttachmentRepository,
+    },
+    {
+      provide: 'VectorSearchProvider',
+      useClass: FirestoreCosineVectorSearchProvider,
     },
     {
       provide: EntryService,
@@ -39,13 +44,14 @@ import { VectorSearchProvider } from './interfaces/vector-search-provider.interf
       useFactory: (
         vectorProvider: VectorSearchProvider,
         aiProvider: AIProvider,
+        entryRepo: EntryRepository,
       ) => {
-        return new SemanticSearchService(vectorProvider, aiProvider);
+        return new SemanticSearchService(vectorProvider, aiProvider, entryRepo);
       },
-      inject: ['VectorSearchProvider', 'AIProvider'],
+      inject: ['VectorSearchProvider', 'AIProvider', 'EntryRepository'],
     },
     AttachmentCleanupCronService,
   ],
-  exports: ['EntryRepository', 'PendingAttachmentRepository', EntryService, SemanticSearchService, AttachmentCleanupCronService],
+  exports: ['EntryRepository', 'PendingAttachmentRepository', 'VectorSearchProvider', EntryService, SemanticSearchService, AttachmentCleanupCronService],
 })
 export class EntriesModule {}

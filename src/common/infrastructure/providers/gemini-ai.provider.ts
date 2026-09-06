@@ -18,6 +18,9 @@ export class GeminiAIProvider implements AIProvider {
       const response = await this.ai.models.generateContent({
         model: 'gemini-3.6-flash',
         contents: `Summarize the following journal entry into a single concise sentence for a timeline view:\n\n${text}`,
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
       return response.text?.trim() || 'No summary generated.';
     } catch (e) {
@@ -40,6 +43,7 @@ If they share something significant, you may suggest saving it as a draft.`;
       contents: message,
       config: {
         systemInstruction,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
@@ -53,6 +57,9 @@ If they share something significant, you may suggest saving it as a draft.`;
     const response = await this.ai.models.generateContent({
       model: 'gemini-3.6-flash',
       contents: `Extract a meaningful journal entry from the following conversation snippet. Make it read like a first-person diary entry.\n\n${conversationSnippet}`,
+      config: {
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     });
 
     return {
@@ -70,6 +77,7 @@ If they share something significant, you may suggest saving it as a draft.`;
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
@@ -92,6 +100,9 @@ If they share something significant, you may suggest saving it as a draft.`;
       const response = await this.ai.models.generateContent({
         model: 'gemini-3.6-flash',
         contents: prompt,
+        config: {
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
       const text = response.text || '';
       return text.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3);
@@ -107,7 +118,10 @@ If they share something significant, you may suggest saving it as a draft.`;
       const response = await this.ai.models.generateContent({
         model: 'gemini-3.6-flash',
         contents: text,
-        config: { systemInstruction },
+        config: { 
+          systemInstruction,
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       });
       return response.text?.trim() || 'No summary generated.';
     } catch (e) {
@@ -143,6 +157,7 @@ Respond strictly in JSON format matching the schema: { "replyText": string, "ext
         config: {
           systemInstruction,
           responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 },
         },
       });
 

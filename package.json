@@ -16,7 +16,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:frontend": "npm run test --prefix frontend"
+    "test:frontend": "npm run test --prefix frontend",
+    "reindex": "ts-node scripts/reindex-entries.ts"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

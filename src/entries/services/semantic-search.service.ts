@@ -1,5 +1,5 @@
 import { SemanticSearchResult } from '../domain';
-import { VectorSearchProvider } from '../interfaces';
+import { VectorSearchProvider, EntryRepository } from '../interfaces';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
 import { ValidationError } from '../../common/errors';
 
@@ -11,6 +11,7 @@ export class SemanticSearchService {
   constructor(
     private readonly vectorSearch: VectorSearchProvider,
     private readonly aiProvider: AIProvider,
+    private readonly entryRepo?: EntryRepository,
   ) {}
 
   /**
@@ -35,23 +36,42 @@ export class SemanticSearchService {
     // 2. Map and enrich each result concurrently
     const semanticResults = await Promise.all(
       vectorResults.map(async (vr) => {
+        let entry = vr.entry;
+        if (this.entryRepo) {
+          const loaded = await this.entryRepo.findById(uid, vr.entry.id);
+          if (loaded) {
+            entry = loaded;
+          }
+        }
+
+        // Generate summary if missing or previous failure string
+        if ((!entry.summary || entry.summary === 'No summary generated.') && entry.text && entry.text.trim().length >= 10) {
+          try {
+            const generated = await this.aiProvider.generateSummary(entry.text);
+            if (generated && generated !== 'No summary generated.') {
+              entry = { ...entry, summary: generated };
+              if (this.entryRepo) {
+                await this.entryRepo.update(uid, entry.id, { summary: generated }).catch(() => {});
+              }
+            }
+          } catch {}
+        }
+
         // Map raw distance (e.g. 0 to 2 for cosine) to a percentage.
         // For cosine distance: 0 is exact match (100%), 2 is opposite (0%).
         // formula: score = Math.max(0, 100 - (distance * 50))
-        // (Assuming provider returns cosine distance. If it returns something else, provider handles it or we normalize here.)
-        // We'll assume typical cosine distance for now.
         const matchScore = Math.max(0, Math.min(100, Math.round(100 - (vr.distance * 50))));
 
         // Extract 2-3 key phrases based on the user's query
         let semanticChips: string[] = [];
         try {
-          semanticChips = await this.aiProvider.extractSemanticChips(query, vr.entry.text);
+          semanticChips = await this.aiProvider.extractSemanticChips(query, entry.text);
         } catch {
           semanticChips = [];
         }
 
         return {
-          entry: vr.entry,
+          entry,
           matchScore,
           semanticChips,
         };

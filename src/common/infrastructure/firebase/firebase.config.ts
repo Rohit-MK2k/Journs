@@ -34,4 +34,9 @@ export function initializeFirebaseAdmin(): void {
     }
     initializeApp(options);
   }
+
+  try {
+    const { getFirestore } = require('firebase-admin/firestore');
+    getFirestore().settings({ ignoreUndefinedProperties: true });
+  } catch {}
 }

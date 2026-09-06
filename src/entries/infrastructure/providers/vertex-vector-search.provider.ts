@@ -12,6 +12,7 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
   private readonly location = process.env.GCP_REGION || 'us-central1';
   private readonly indexId = process.env.VERTEX_INDEX_ID!;
   private readonly endpointId = process.env.VERTEX_INDEX_ENDPOINT_ID!;
+  private readonly deployedIndexId = process.env.VERTEX_DEPLOYED_INDEX_ID!;
 
   constructor(
     @Inject('GENAI_CLIENT') private readonly ai: GoogleGenAI,
@@ -86,7 +87,7 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
 
       const [response] = await this.matchClient.findNeighbors({
         indexEndpoint: endpointName,
-        deployedIndexId: 'journ_entries_index',
+        deployedIndexId: this.deployedIndexId,
         queries: [
           {
             datapoint: {
@@ -135,6 +136,9 @@ export class VertexAIVectorSearchProvider implements VectorSearchProvider {
       const response = await this.ai.models.embedContent({
         model: 'gemini-embedding-2',
         contents: text,
+        config: {
+          outputDimensionality: 768,
+        },
       });
       return response.embeddings?.[0]?.values || [];
     } catch (e) {

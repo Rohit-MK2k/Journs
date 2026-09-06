@@ -1,6 +1,5 @@
 import { Module, Global } from '@nestjs/common';
 import { GeminiAIProvider } from './infrastructure/providers/gemini-ai.provider';
-import { VertexAIVectorSearchProvider } from '../entries/infrastructure/providers/vertex-vector-search.provider';
 import { GoogleGenAI } from '@google/genai';
 import { v1 } from '@google-cloud/aiplatform';
 
@@ -12,6 +11,13 @@ import { FirebaseStorageProvider } from './infrastructure/providers/firebase-sto
     {
       provide: 'GENAI_CLIENT',
       useFactory: () => {
+        if (process.env.GCP_PROJECT_ID) {
+          return new GoogleGenAI({
+            vertexai: true,
+            project: process.env.GCP_PROJECT_ID,
+            location: process.env.GENAI_LOCATION || 'global',
+          });
+        }
         return new GoogleGenAI({ 
           vertexai: false,
           apiKey: process.env.GEMINI_API_KEY || 'dummy-dev-key-for-booting'
@@ -42,14 +48,10 @@ import { FirebaseStorageProvider } from './infrastructure/providers/firebase-sto
       useClass: GeminiAIProvider,
     },
     {
-      provide: 'VectorSearchProvider',
-      useClass: VertexAIVectorSearchProvider,
-    },
-    {
       provide: 'StorageProvider',
       useClass: FirebaseStorageProvider,
     },
   ],
-  exports: ['AIProvider', 'VectorSearchProvider', 'GENAI_CLIENT', 'VERTEX_INDEX_CLIENT', 'VERTEX_MATCH_CLIENT', 'StorageProvider'],
+  exports: ['AIProvider', 'GENAI_CLIENT', 'VERTEX_INDEX_CLIENT', 'VERTEX_MATCH_CLIENT', 'StorageProvider'],
 })
 export class CommonModule {}

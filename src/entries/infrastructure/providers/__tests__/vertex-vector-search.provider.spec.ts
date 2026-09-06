@@ -44,6 +44,7 @@ describe('VertexAIVectorSearchProvider', () => {
     expect(mockGenAiClient.models.embedContent).toHaveBeenCalledWith({
       model: 'gemini-embedding-2',
       contents: 'test',
+      config: { outputDimensionality: 768 },
     });
     expect(mockUpsert).toHaveBeenCalled();
   });
@@ -68,6 +69,7 @@ describe('VertexAIVectorSearchProvider', () => {
     expect(mockGenAiClient.models.embedContent).toHaveBeenCalledWith({
       model: 'gemini-embedding-2',
       contents: 'query',
+      config: { outputDimensionality: 768 },
     });
     expect(results).toHaveLength(1);
     expect(results[0].entry.id).toBe('entry-123');
