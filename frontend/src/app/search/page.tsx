@@ -174,7 +174,7 @@ export default function SearchOverlay() {
                           </div>
                         </div>
 
-                        {res.summary && (
+                        {res.summary && res.summary !== 'No summary generated.' && (
                           <div className="bg-subtle/60 border border-border/50 rounded-lg p-3 flex gap-2.5 text-secondary italic text-body-md mb-3">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5 text-blue-500"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
                             <span>{res.summary}</span>

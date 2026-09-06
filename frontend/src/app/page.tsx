@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import AuthGuard from "@/components/AuthGuard";
 import { apiClient } from "@/lib/apiClient";
 import useSWR from "swr";
@@ -60,6 +61,27 @@ export default function MainDashboard() {
   const [activeTab, setActiveTab] = useState<'today' | 'past'>('today');
   const [isSaving, setIsSaving] = useState(false);
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    if (auth.currentUser) {
+      setUser(auth.currentUser);
+    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
+  const initials = (displayName || "U")
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "U";
 
   const { data: entries, error: entriesError, isLoading: entriesLoading, mutate: mutateEntries } = useSWR<JournalEntry[]>('/api/entries', fetcher, {
     errorRetryCount: 2
@@ -256,13 +278,6 @@ export default function MainDashboard() {
       setSaveStatus("Sync Failed");
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleBlur = () => {
-    const textToCheck = editorText || lastSavedTextRef.current;
-    if (textToCheck.length > 5 && currentEntryId) {
-      apiClient(`/api/entries/${currentEntryId}/summary/generate`, { method: 'POST' }).catch(() => {});
     }
   };
 
@@ -557,8 +572,15 @@ export default function MainDashboard() {
     const dateBadgeDisplay = expandedEntry.relativeDate || (expandedEntry.date && !isNaN(new Date(expandedEntry.date).getTime())
       ? new Date(expandedEntry.date).toLocaleDateString()
       : fullDateDisplay);
-    const summaryDisplay = expandedEntry.preview || expandedEntry.aiSummary || expandedEntry.snippet || "";
-    const bodyDisplay = expandedEntry.snippet || expandedEntry.preview || summaryDisplay;
+    const rawSummary = expandedEntry.preview || expandedEntry.aiSummary;
+    const hasSummary = Boolean(
+      rawSummary &&
+      rawSummary !== 'No summary generated.' &&
+      rawSummary !== expandedEntry.text &&
+      rawSummary !== expandedEntry.snippet
+    );
+    const summaryDisplay = hasSummary ? rawSummary! : "";
+    const bodyDisplay = expandedEntry.text || expandedEntry.snippet || expandedEntry.preview || "";
     const hasAtt = expandedEntry.hasAttachments || (expandedEntry.attachments && Object.keys(expandedEntry.attachments).length > 0);
     const wordCount = expandedEntry.wordCount ?? 0;
     const readTime = expandedEntry.readTime || `${Math.ceil(wordCount / 200) || 1} min read`;
@@ -587,8 +609,12 @@ export default function MainDashboard() {
             <Link href="/search" className="text-secondary hover:text-primary">
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
             </Link>
-            <Link href="/settings" className="w-8 h-8 rounded-full bg-subtle overflow-hidden border border-border flex items-center justify-center">
-              <span className="text-xs font-medium">AC</span>
+            <Link href="/settings" className="w-8 h-8 rounded-full bg-subtle overflow-hidden border border-border flex items-center justify-center hover:border-primary/50 transition-colors" aria-label="Settings & Profile">
+              {user?.photoURL ? (
+                <img src={user.photoURL} alt={displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="text-xs font-medium text-primary">{initials}</span>
+              )}
             </Link>
           </div>
         </header>
@@ -734,8 +760,12 @@ export default function MainDashboard() {
           <Link href="/search" className="text-secondary hover:text-primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </Link>
-          <Link href="/settings" className="w-8 h-8 rounded-full bg-subtle overflow-hidden border border-border flex items-center justify-center">
-             <span className="text-xs font-medium">AC</span>
+          <Link href="/settings" className="w-8 h-8 rounded-full bg-subtle overflow-hidden border border-border flex items-center justify-center hover:border-primary/50 transition-colors" aria-label="Settings & Profile">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt={displayName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="text-xs font-medium text-primary">{initials}</span>
+            )}
           </Link>
         </div>
       </header>
@@ -749,7 +779,6 @@ export default function MainDashboard() {
           autoFocus
           value={editorText}
           onChange={(e) => setEditorText(e.target.value)}
-          onBlur={handleBlur}
           placeholder={isIdle ? IDLE_PROMPTS[promptIndex] : "What's on your mind today?"}
           className="w-full bg-transparent resize-none outline-none text-body-lg text-primary placeholder:text-tertiary leading-relaxed min-h-[150px] transition-all"
         />
@@ -969,8 +998,15 @@ export default function MainDashboard() {
                 const timeDisplay = entry.date && !isNaN(new Date(entry.date).getTime())
                   ? new Date(entry.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : (entry.relativeDate || "Today");
-                const summaryDisplay = entry.preview || entry.aiSummary || entry.snippet || "";
-                const snippetDisplay = entry.snippet || entry.preview || summaryDisplay;
+                const rawSummary = entry.preview || entry.aiSummary;
+                const snippetDisplay = entry.snippet || entry.text || entry.preview || "";
+                const hasSummary = Boolean(
+                  rawSummary &&
+                  rawSummary !== 'No summary generated.' &&
+                  rawSummary !== entry.text &&
+                  rawSummary !== entry.snippet
+                );
+                const summaryDisplay = hasSummary ? rawSummary! : "";
                 const hasAtt = entry.hasAttachments || (entry.attachments && Object.keys(entry.attachments).length > 0);
 
                 return (
@@ -986,16 +1022,18 @@ export default function MainDashboard() {
                       </div>
                     </div>
                     
-                    {summaryDisplay && (
-                      <div className="bg-subtle/50 rounded-lg p-3 flex gap-2 text-secondary italic text-body-md line-clamp-1">
+                    {hasSummary && summaryDisplay && (
+                      <div className="bg-subtle/50 rounded-lg p-3 flex gap-2 text-secondary italic text-body-md leading-relaxed">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                        <span className="truncate">{summaryDisplay}</span>
+                        <span>{summaryDisplay}</span>
                       </div>
                     )}
                     
-                    <p className="text-secondary text-body-md line-clamp-2 leading-relaxed">
-                      {snippetDisplay}
-                    </p>
+                    {snippetDisplay && (
+                      <p className="text-secondary text-body-md line-clamp-2 leading-relaxed">
+                        {snippetDisplay}
+                      </p>
+                    )}
                   </button>
                 );
               })
@@ -1013,8 +1051,15 @@ export default function MainDashboard() {
                 const dateDisplay = entry.relativeDate || (entry.date && !isNaN(new Date(entry.date).getTime())
                   ? new Date(entry.date).toLocaleDateString()
                   : (entry.fullDate || "Past Entry"));
-                const summaryDisplay = entry.preview || entry.aiSummary || entry.snippet || "";
-                const snippetDisplay = entry.snippet || entry.preview || summaryDisplay;
+                const rawSummary = entry.preview || entry.aiSummary;
+                const snippetDisplay = entry.snippet || entry.text || entry.preview || "";
+                const hasSummary = Boolean(
+                  rawSummary &&
+                  rawSummary !== 'No summary generated.' &&
+                  rawSummary !== entry.text &&
+                  rawSummary !== entry.snippet
+                );
+                const summaryDisplay = hasSummary ? rawSummary! : "";
                 const hasAtt = entry.hasAttachments || (entry.attachments && Object.keys(entry.attachments).length > 0);
 
                 return (
@@ -1030,16 +1075,18 @@ export default function MainDashboard() {
                       </div>
                     </div>
                     
-                    {summaryDisplay && (
-                      <div className="bg-subtle/50 rounded-lg p-3 flex gap-2 text-secondary italic text-body-md line-clamp-1">
+                    {hasSummary && summaryDisplay && (
+                      <div className="bg-subtle/50 rounded-lg p-3 flex gap-2 text-secondary italic text-body-md leading-relaxed">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
-                        <span className="truncate">{summaryDisplay}</span>
+                        <span>{summaryDisplay}</span>
                       </div>
                     )}
                     
-                    <p className="text-secondary text-body-md line-clamp-2 leading-relaxed">
-                      {snippetDisplay}
-                    </p>
+                    {snippetDisplay && (
+                      <p className="text-secondary text-body-md line-clamp-2 leading-relaxed">
+                        {snippetDisplay}
+                      </p>
+                    )}
                   </button>
                 );
               })

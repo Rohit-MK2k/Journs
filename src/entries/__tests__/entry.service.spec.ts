@@ -285,8 +285,10 @@ describe('EntryService', () => {
 
   describe('getTimeline', () => {
     it('should return entries with AI summaries, sorted newest-first', async () => {
-      const older = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: 'Day 1' });
-      const newer = makeEntry({ id: 'e-2', date: new Date('2026-09-02'), text: 'Day 2' });
+      const longText1 = 'Day one was wonderful and peaceful as I walked outside and took time to reflect on everything that happened during the busy week.';
+      const longText2 = 'Day two was equally refreshing with lots of productive tasks completed and relaxing quiet time spent reading books and drinking hot tea.';
+      const older = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: longText1 });
+      const newer = makeEntry({ id: 'e-2', date: new Date('2026-09-02'), text: longText2 });
       repo.listByUser.mockResolvedValue([older, newer]);
       aiProvider.summarize
         .mockResolvedValueOnce('Summary of Day 1')
@@ -295,8 +297,8 @@ describe('EntryService', () => {
       const result = await service.getTimeline('user-1');
 
       expect(result).toEqual([
-        { id: 'e-2', date: new Date('2026-09-02'), preview: 'Summary of Day 2', wordCount: 2, hasAttachments: false },
-        { id: 'e-1', date: new Date('2026-09-01'), preview: 'Summary of Day 1', wordCount: 2, hasAttachments: false },
+        { id: 'e-2', date: new Date('2026-09-02'), preview: 'Summary of Day 2', snippet: longText2, wordCount: 22, hasAttachments: false },
+        { id: 'e-1', date: new Date('2026-09-01'), preview: 'Summary of Day 1', snippet: longText1, wordCount: 23, hasAttachments: false },
       ]);
     });
 
@@ -324,34 +326,35 @@ describe('EntryService', () => {
       expect(aiProvider.summarize).not.toHaveBeenCalled();
     });
 
-    it('should fall back to text snippet if aiProvider.summarize throws', async () => {
-      const longText = 'A'.repeat(150);
-      const entry = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: longText });
+    it('should skip summarization if entry has 20 or fewer words', async () => {
+      const shortText = 'Only a few words written here.';
+      const entry = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: shortText });
       repo.listByUser.mockResolvedValue([entry]);
-      aiProvider.summarize.mockRejectedValue(new Error('Quota exhausted'));
 
       const result = await service.getTimeline('user-1');
 
-      expect(result[0].preview).toBe(`${'A'.repeat(117)}...`);
+      expect(result[0].preview).toBeUndefined();
+      expect(aiProvider.summarize).not.toHaveBeenCalled();
     });
   });
 
   // --- generateAndSaveSummary ---
 
   describe('generateAndSaveSummary', () => {
-    it('should generate and save a summary for a valid entry', async () => {
-      const entry = makeEntry({ text: 'This is a long enough text.' });
+    it('should generate and save a summary for a valid entry with >20 words', async () => {
+      const longText = 'Today was a wonderful morning where I walked through the park, watched the sunrise, and reflected deeply on my personal growth and ongoing creative aspirations.';
+      const entry = makeEntry({ text: longText });
       repo.findById.mockResolvedValue(entry);
       aiProvider.generateSummary.mockResolvedValue('A generated summary');
 
       await service.generateAndSaveSummary('user-1', 'entry-1');
 
-      expect(aiProvider.generateSummary).toHaveBeenCalledWith('This is a long enough text.');
+      expect(aiProvider.generateSummary).toHaveBeenCalledWith(longText);
       expect(repo.update).toHaveBeenCalledWith('user-1', 'entry-1', { summary: 'A generated summary' });
     });
 
-    it('should not generate a summary if the entry text is empty or too short', async () => {
-      const entry = makeEntry({ text: 'short' });
+    it('should not generate a summary if the entry text has 20 or fewer words', async () => {
+      const entry = makeEntry({ text: 'short text here' });
       repo.findById.mockResolvedValue(entry);
 
       await service.generateAndSaveSummary('user-1', 'entry-1');

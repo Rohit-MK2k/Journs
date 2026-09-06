@@ -2,6 +2,7 @@ import { SemanticSearchResult } from '../domain';
 import { VectorSearchProvider, EntryRepository } from '../interfaces';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
 import { ValidationError } from '../../common/errors';
+import { shouldSummarize } from '../../common/utils/summarization.util';
 
 /**
  * Business logic for mapping raw vector searches into enriched semantic search results
@@ -44,8 +45,8 @@ export class SemanticSearchService {
           }
         }
 
-        // Generate summary if missing or previous failure string
-        if ((!entry.summary || entry.summary === 'No summary generated.') && entry.text && entry.text.trim().length >= 10) {
+        // Generate summary if missing and eligible
+        if ((!entry.summary || entry.summary === 'No summary generated.') && shouldSummarize(entry.text)) {
           try {
             const generated = await this.aiProvider.generateSummary(entry.text);
             if (generated && generated !== 'No summary generated.') {

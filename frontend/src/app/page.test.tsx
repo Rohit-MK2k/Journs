@@ -51,6 +51,8 @@ describe('Main Dashboard Suite', () => {
     // Switching to Past Entries tab shows the past entry
     fireEvent.click(screen.getByText(/Past Entries/i));
     expect(await screen.findByText('YESTERDAY')).toBeInTheDocument();
+    expect(screen.getByText('Mocked AI summary')).toBeInTheDocument();
+    expect(screen.getByText('Mocked snippet')).toBeInTheDocument();
   });
 
   it('T2.3 Expanded Entry State & T2.4 Return to Timeline', async () => {
@@ -306,12 +308,11 @@ describe('Main Dashboard Suite', () => {
   describe('Suite 12: Auto-Summary Trigger', () => {
     beforeEach(() => { jest.useRealTimers(); });
     
-    it('T12.1 should capture the real entry ID from the save response and use it to trigger summary generation on blur', async () => {
+    it('T12.1 should not trigger summary generation on blur', async () => {
       const fetchSpy = jest.spyOn(global, 'fetch');
       fetchSpy.mockClear();
       fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
-              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'real-dynamic-id-999' }) } as any) // Save
-              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any); // Summary generate
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'real-dynamic-id-999' }) } as any); // Save
       
       render(<TestWrapper><MainDashboard /></TestWrapper>);
       const textarea = screen.getByRole('textbox');
@@ -330,12 +331,10 @@ describe('Main Dashboard Suite', () => {
         fireEvent.blur(textarea);
       });
       
-      await waitFor(() => {
-        expect(fetchSpy).toHaveBeenCalledWith(
-          expect.stringContaining('/api/entries/real-dynamic-id-999/summary/generate'),
-          expect.objectContaining({ method: 'POST' })
-        );
-      }, { timeout: 2000 });
+      expect(fetchSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('/summary/generate'),
+        expect.anything()
+      );
       
       fetchSpy.mockRestore();
     });
@@ -378,6 +377,15 @@ describe('Main Dashboard Suite', () => {
       expect((await screen.findAllByText('Loaded successfully', {}, { timeout: 2000 }))[0]).toBeInTheDocument();
       
       jest.useFakeTimers();
+    });
+  });
+
+  describe('Suite 13: User Header Avatar', () => {
+    it('T13.1 should render user initials when photoURL is not present', () => {
+      render(<TestWrapper><MainDashboard /></TestWrapper>);
+      const avatarLink = screen.getByRole('link', { name: 'U' });
+      expect(avatarLink).toBeInTheDocument();
+      expect(avatarLink).toHaveAttribute('href', '/settings');
     });
   });
 });

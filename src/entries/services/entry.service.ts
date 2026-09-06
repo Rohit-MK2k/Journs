@@ -3,6 +3,7 @@ import { EntryRepository, VectorSearchProvider } from '../interfaces';
 import { PendingAttachmentRepository } from '../interfaces/pending-attachment-repository.interface';
 import { AIProvider } from '../../common/interfaces/ai-provider.interface';
 import { ValidationError, ConflictError, NotFoundError } from '../../common/errors';
+import { shouldSummarize } from '../../common/utils/summarization.util';
 import { Optional, Inject } from '@nestjs/common';
 
 /**
@@ -171,18 +172,24 @@ export class EntryService {
     const summaries: EntrySummary[] = await Promise.all(
       entries.map(async (entry) => {
         let preview = entry.summary;
-        if (!preview) {
+        if (!preview && shouldSummarize(entry.text)) {
           try {
             preview = await this.aiProvider.summarize(entry.text);
+            if (preview) {
+              try {
+                await this.repo.update(uid, entry.id, { summary: preview });
+              } catch {}
+            }
           } catch {
-            preview = entry.text.length > 120 ? `${entry.text.slice(0, 117)}...` : entry.text;
+            preview = undefined;
           }
         }
         const wordCount = entry.text.split(/\s+/).filter(w => w.length > 0).length;
         return { 
           id: entry.id, 
           date: entry.date, 
-          preview,
+          preview: preview || undefined,
+          snippet: entry.text,
           wordCount,
           hasAttachments: (entry.attachments || []).length > 0
         };
@@ -205,13 +212,15 @@ export class EntryService {
       throw new NotFoundError(`Entry not found: ${entryId}`);
     }
 
-    if (!entry.text || entry.text.length < 10) {
+    if (!shouldSummarize(entry.text)) {
       return;
     }
 
     try {
       const summary = await this.aiProvider.generateSummary(entry.text);
-      await this.repo.update(uid, entryId, { summary });
+      if (summary) {
+        await this.repo.update(uid, entryId, { summary });
+      }
     } catch {
       // Best-effort background summary generation; suppress error so save/autosave flow is not disrupted
     }
