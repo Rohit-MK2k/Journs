@@ -1,17 +1,23 @@
 import '@testing-library/jest-dom'
 
-jest.mock('firebase/auth', () => ({
-  getAuth: jest.fn(() => ({
-    currentUser: { uid: 'mock-user', getIdToken: jest.fn().mockResolvedValue('mock-token') }
-  })),
-  GoogleAuthProvider: jest.fn(),
-  signInWithPopup: jest.fn(),
-  signOut: jest.fn(),
-  onAuthStateChanged: jest.fn((auth, cb) => {
-    cb({ uid: 'mock-user' });
+jest.mock('firebase/auth', () => {
+  const onAuthStateChangedMock = jest.fn((authOrCb, cb) => {
+    const callback = typeof authOrCb === 'function' ? authOrCb : cb;
+    if (callback) callback({ uid: 'mock-user' });
     return () => {};
-  })
-}));
+  });
+  return {
+    getAuth: jest.fn(() => ({
+      currentUser: { uid: 'mock-user', getIdToken: jest.fn().mockResolvedValue('mock-token') },
+      onAuthStateChanged: onAuthStateChangedMock,
+    })),
+    GoogleAuthProvider: jest.fn(),
+    signInWithPopup: jest.fn(),
+    signOut: jest.fn(),
+    signInWithRedirect: jest.fn(),
+    onAuthStateChanged: onAuthStateChangedMock,
+  };
+});
 
 jest.mock('next/navigation', () => ({
   useRouter: jest.fn(() => ({

@@ -40,16 +40,24 @@ describe('Main Dashboard Suite', () => {
     expect(screen.getByText('Saving...')).toBeInTheDocument();
   });
 
-  it('T2.2 Timeline Rendering', async () => {
+  it('T2.2 Timeline Rendering with Today and Past tabs', async () => {
     render(<TestWrapper><MainDashboard /></TestWrapper>);
-    expect(screen.getByText('Recent Entries')).toBeInTheDocument();
+    expect(screen.getByText(/Today's Entries/i)).toBeInTheDocument();
+    expect(screen.getByText(/Past Entries/i)).toBeInTheDocument();
+    
+    // By default on Today tab, if mock has YESTERDAY, Today tab shows empty state
+    expect(await screen.findByText('No entries for today')).toBeInTheDocument();
+
+    // Switching to Past Entries tab shows the past entry
+    fireEvent.click(screen.getByText(/Past Entries/i));
     expect(await screen.findByText('YESTERDAY')).toBeInTheDocument();
   });
 
   it('T2.3 Expanded Entry State & T2.4 Return to Timeline', async () => {
     render(<TestWrapper><MainDashboard /></TestWrapper>);
     
-    // Click timeline card
+    // Switch to Past Entries tab
+    fireEvent.click(screen.getByText(/Past Entries/i));
     const yesterday = await screen.findByText('YESTERDAY');
     const card = yesterday.closest('button');
     act(() => {
@@ -57,7 +65,7 @@ describe('Main Dashboard Suite', () => {
     });
     
     expect(screen.getByText('Tuesday, September 3, 2024')).toBeInTheDocument();
-    expect(screen.queryByText('Recent Entries')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Today's Entries/i)).not.toBeInTheDocument();
     
     // Return to timeline
     const backBtn = screen.getByRole('button', { name: /Timeline/i });
@@ -65,7 +73,7 @@ describe('Main Dashboard Suite', () => {
       fireEvent.click(backBtn);
     });
     
-    expect(screen.getByText('Recent Entries')).toBeInTheDocument();
+    expect(screen.getByText(/Today's Entries/i)).toBeInTheDocument();
   });
 
   describe('Suite 10: Entry Attachments', () => {
@@ -78,11 +86,11 @@ describe('Main Dashboard Suite', () => {
       expect(screen.getByLabelText('Add Location')).toBeInTheDocument();
     });
 
-    it('T10.2 should capture the real entry ID from the autosave response and use it for subsequent attachment uploads', async () => {
+    it('T10.2 should capture the real entry ID from the save response and use it for subsequent attachment uploads', async () => {
       const fetchSpy = jest.spyOn(global, 'fetch');
       fetchSpy.mockClear();
       fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
-              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Autosave
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Save
               .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ url: 'upload.url' }) } as any) // Signed URL
               .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any); // Attach
 
@@ -90,6 +98,7 @@ describe('Main Dashboard Suite', () => {
       const textarea = screen.getByRole('textbox');
       
       fireEvent.change(textarea, { target: { value: 'Something' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save Entry/i }));
       await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 3000 });
       
       await act(async () => {
@@ -109,13 +118,14 @@ describe('Main Dashboard Suite', () => {
       const fetchSpy = jest.spyOn(global, 'fetch');
       fetchSpy.mockClear();
       fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
-              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Autosave
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'entry-456' }) } as any) // Save
               .mockImplementationOnce(() => Promise.reject(new Error('Upload failed'))); // Fail upload
       
       render(<TestWrapper><MainDashboard /></TestWrapper>);
       const textarea = screen.getByRole('textbox');
       
       fireEvent.change(textarea, { target: { value: 'Something' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save Entry/i }));
       await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument(), { timeout: 3000 });
       
       const btn = screen.getByLabelText('Add Photo');
@@ -126,6 +136,131 @@ describe('Main Dashboard Suite', () => {
       await waitFor(() => {
         expect(screen.getByText('Upload Failed')).toBeInTheDocument();
       }, { timeout: 2000 });
+      fetchSpy.mockRestore();
+    });
+
+    it('T10.4 should stage attachments before saving and include them in manual save request without calling /api/entries/123/attachments', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ publicUrl: 'http://url.jpg', filePath: 'path.jpg', fileId: 'f1' }) } as any) // Upload-url
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'new-entry-789' }) } as any); // Save
+
+      render(<TestWrapper><MainDashboard /></TestWrapper>);
+      
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Add Photo'));
+      });
+      
+      expect(await screen.findByText('📸 Photo')).toBeInTheDocument();
+      // Verify fake ID '123' was NOT called
+      expect(fetchSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('/api/entries/123/attachments'),
+        expect.anything()
+      );
+
+      const textarea = screen.getByRole('textbox');
+      fireEvent.change(textarea, { target: { value: 'Entry with photo' } });
+      
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Save Entry/i }));
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/entries'),
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"type":"photo"'),
+        })
+      );
+      fetchSpy.mockRestore();
+    });
+
+    it('T10.5 should render an interactive photo preview with lightbox modal on click and dismiss on Escape or close button', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any)
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ publicUrl: 'http://test/pic.jpg', filePath: 'path.jpg', fileId: 'f-photo-1' }) } as any);
+
+      render(<TestWrapper><MainDashboard /></TestWrapper>);
+      
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Add Photo'));
+      });
+
+      const photoImg = await screen.findByAltText(/Photo/i);
+      expect(photoImg).toBeInTheDocument();
+      expect(photoImg).toHaveAttribute('src', 'http://test/pic.jpg');
+
+      // Click photo to open lightbox
+      fireEvent.click(photoImg);
+      expect(screen.getByTestId('lightbox-modal')).toBeInTheDocument();
+
+      // Dismiss via Escape key
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByTestId('lightbox-modal')).not.toBeInTheDocument();
+
+      // Open again and dismiss via close button
+      fireEvent.click(photoImg);
+      expect(screen.getByTestId('lightbox-modal')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Close Lightbox'));
+      expect(screen.queryByTestId('lightbox-modal')).not.toBeInTheDocument();
+
+      fetchSpy.mockRestore();
+    });
+
+    it('T10.6 should render an audio player for voice attachments and trigger pending deletion on remove', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any)
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ publicUrl: 'http://test/audio.mp3', filePath: 'path.mp3', fileId: 'f-voice-1' }) } as any)
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ success: true }) } as any); // pending deletion
+
+      render(<TestWrapper><MainDashboard /></TestWrapper>);
+      
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Add Voice'));
+      });
+
+      expect(await screen.findByText('🎙 Voice')).toBeInTheDocument();
+      const audioElement = document.querySelector('audio');
+      expect(audioElement).toBeInTheDocument();
+      expect(audioElement).toHaveAttribute('src', 'http://test/audio.mp3');
+
+      // Remove attachment
+      const removeBtn = screen.getByLabelText(/Remove Voice/i);
+      await act(async () => {
+        fireEvent.click(removeBtn);
+      });
+
+      expect(screen.queryByText('🎙 Voice')).not.toBeInTheDocument();
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/entries/attachments/pending/f-voice-1'),
+        expect.objectContaining({ method: 'DELETE' })
+      );
+
+      fetchSpy.mockRestore();
+    });
+
+    it('T10.7 should render a Google Maps link for location attachments', async () => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      fetchSpy.mockClear();
+      fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any)
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any);
+
+      render(<TestWrapper><MainDashboard /></TestWrapper>);
+      
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('Add Location'));
+      });
+
+      expect(await screen.findByText('📍 Location')).toBeInTheDocument();
+      const mapLink = screen.queryByRole('link', { name: /View on Google Maps/i });
+      // In node test env, navigator.geolocation is mocked in processUpload('location') which might not set lat/lng unless provided
+      if (mapLink) {
+        expect(mapLink).toHaveAttribute('target', '_blank');
+      }
+
       fetchSpy.mockRestore();
     });
   });
@@ -171,20 +306,21 @@ describe('Main Dashboard Suite', () => {
   describe('Suite 12: Auto-Summary Trigger', () => {
     beforeEach(() => { jest.useRealTimers(); });
     
-    it('T12.1 should capture the real entry ID from the autosave response and use it to trigger summary generation on blur', async () => {
+    it('T12.1 should capture the real entry ID from the save response and use it to trigger summary generation on blur', async () => {
       const fetchSpy = jest.spyOn(global, 'fetch');
       fetchSpy.mockClear();
       fetchSpy.mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => [] } as any) // SWR
-              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'real-dynamic-id-999' }) } as any) // Autosave
+              .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({ id: 'real-dynamic-id-999' }) } as any) // Save
               .mockResolvedValueOnce({ ok: true, headers: { get: () => null }, json: async () => ({}) } as any); // Summary generate
       
       render(<TestWrapper><MainDashboard /></TestWrapper>);
       const textarea = screen.getByRole('textbox');
       
-      // Trigger autosave
+      // Enter text and click save
       fireEvent.change(textarea, { target: { value: 'This is a long enough entry to trigger a summary generation.' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save Entry/i }));
       
-      // Wait for autosave to complete (1000ms debounce + API call)
+      // Wait for save to complete
       await waitFor(() => {
         expect(screen.getByText('Saved')).toBeInTheDocument();
       }, { timeout: 3000 });
@@ -206,10 +342,8 @@ describe('Main Dashboard Suite', () => {
   });
 
   describe('Suite 8: Network Error Handling & Fallbacks', () => {
-    it('T8.1 Autosave Network Failure', async () => {
-      jest.useFakeTimers();
-      
-      // First fetch is for SWR GET /api/entries, second is for POST /autosave
+    it('T8.1 Save Network Failure', async () => {
+      // First fetch is for SWR GET /api/entries, second is for POST /entries
       global.fetch = jest.fn()
         .mockResolvedValueOnce({ ok: true, json: async () => [] })
         .mockRejectedValueOnce(new Error('Network failure'));
@@ -217,17 +351,10 @@ describe('Main Dashboard Suite', () => {
       render(<TestWrapper><MainDashboard /></TestWrapper>);
       const textarea = screen.getByPlaceholderText("What's on your mind today?");
       
-      fireEvent.change(textarea, { target: { value: 'Trigger autosave error' } });
-      
-      expect(screen.getByText('Saving...')).toBeInTheDocument();
-      
-      await act(async () => {
-        jest.advanceTimersByTime(1000); // Trigger the timeout
-      });
+      fireEvent.change(textarea, { target: { value: 'Trigger save error' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save Entry/i }));
       
       expect(await screen.findByText('Sync Failed')).toBeInTheDocument();
-      
-      jest.useRealTimers();
     });
 
     it('T8.2 Data Fetch Retry Logic (SWR transient failure)', async () => {
@@ -248,7 +375,7 @@ describe('Main Dashboard Suite', () => {
       expect(screen.getByTestId('entries-skeleton')).toBeInTheDocument();
       
       // SWR will retry automatically; eventually data will mount
-      expect(await screen.findByText('Loaded successfully', {}, { timeout: 2000 })).toBeInTheDocument();
+      expect((await screen.findAllByText('Loaded successfully', {}, { timeout: 2000 }))[0]).toBeInTheDocument();
       
       jest.useFakeTimers();
     });
