@@ -30,6 +30,6 @@ import { HabitMemoryController } from './presentation/controllers/habit-memory.c
     },
     HabitMemoryCronService,
   ],
-  exports: ['HabitMemoryStore', HabitMemoryService],
+  exports: ['HabitMemoryStore', HabitMemoryService, HabitMemoryCronService],
 })
 export class HabitMemoryModule {}
