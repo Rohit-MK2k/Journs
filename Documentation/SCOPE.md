@@ -33,15 +33,14 @@ journaling app. Strip write/save/read — no longer one.
   - Distraction-free editor — minimal chrome
   - Soft placeholder text on empty state, not a blank void
 - **Save**
-  - Autosave on every change (debounced) — no save button
-  - Save also triggers on app background/close, not just typing pause
-  - Quiet, non-intrusive save confirmation — no popup/toast nag
-  - Entries are stored server-side, tied to the user's account (not
-    device-local) — see Account & Login section
+  - Explicit manual **Save** button commits the entry to the server and clears the editor for the next entry
+  - Automatic debounced save stores an active draft locally in browser `localStorage` to prevent accidental loss
+  - Local draft automatically expires and discards when the current calendar day ends (midnight, not a rolling 24-hour window)
+  - Committed entries are stored server-side, tied to the user's account — see Account & Login section
 - **Read**
-  - Chronological timeline, newest first
-  - Each entry shows date + meaningful preview snippet
-  - "Today" labeled distinctly from past dates
+  - Main dashboard displays "Today's Entries" featuring all entries recorded for the current day, sorted newest-first with creation timestamps (e.g., 10:45 AM)
+  - If no entries exist for the day, displays an empty state ("No entries for today")
+  - A tab switcher on the dashboard allows viewing "Past Entries" (chronological timeline of previous days)
   - Tap entry → straight into view/edit, no extra button hunt
   - Fast, natural scroll
 - **Cross-cutting**
@@ -52,7 +51,7 @@ journaling app. Strip write/save/read — no longer one.
 
 - **Primary entry mode is text.** Voice, photo, and location are optional
   attachments layered onto a text entry — not separate/alternate entry types.
-- Entries are per calendar day by default; one page for "today."
+- Multiple entries are allowed per calendar day.
 
 ---
 
@@ -73,6 +72,12 @@ All optional, per-entry, never forced or default-prompted:
 
 An entry can combine any mix: text + voice clip + photo + location, all under
 one date.
+
+- **Attachment Lifecycle & Orphan Cleanup:**
+  - When uploading attachments to an unsaved entry, metadata is staged locally in the draft (both in memory and debounced in browser `localStorage`), preventing premature entity creation or 404 errors.
+  - Clicking **Save Entry** commits text and all staged attachments atomically to the server.
+  - If a user uploads files but abandons their draft without saving, the unconfirmed storage uploads are tracked via a `pending_attachments` collection.
+  - A scheduled background cron job runs daily at **2:00 AM**, purging all unconfirmed orphan files in cloud storage that were uploaded prior to the current day (`00:00:00`), keeping cloud storage costs minimal while protecting active late-night drafts.
 
 ### 2. AI on Write
 
