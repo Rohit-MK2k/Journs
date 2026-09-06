@@ -61,14 +61,12 @@ describe('EntryService', () => {
   describe('createEntry', () => {
     it('should create an entry with valid inputs', async () => {
       const saved = makeEntry();
-      repo.findByDate.mockResolvedValue(null);
       repo.save.mockResolvedValue(saved);
       repo.update.mockResolvedValue({ ...saved, vectorIndexed: true });
 
       const result = await service.createEntry('user-1', 'Today was productive.');
 
       expect(result).toEqual(saved);
-      expect(repo.findByDate).toHaveBeenCalledWith('user-1', expect.any(Date));
       expect(repo.save).toHaveBeenCalledWith('user-1', expect.objectContaining({
         uid: 'user-1',
         text: 'Today was productive.',
@@ -126,11 +124,19 @@ describe('EntryService', () => {
       }));
     });
 
-    it('should throw when an entry for today already exists', async () => {
-      repo.findByDate.mockResolvedValue(makeEntry());
+    it('should allow multiple entries to be created for the same day', async () => {
+      const entry1 = makeEntry({ id: 'entry-1', text: 'First entry' });
+      const entry2 = makeEntry({ id: 'entry-2', text: 'Second entry' });
+      repo.save
+        .mockResolvedValueOnce(entry1)
+        .mockResolvedValueOnce(entry2);
 
-      await expect(service.createEntry('user-1', 'new text'))
-        .rejects.toThrow(ConflictError);
+      const res1 = await service.createEntry('user-1', 'First entry');
+      const res2 = await service.createEntry('user-1', 'Second entry');
+
+      expect(res1.id).toBe('entry-1');
+      expect(res2.id).toBe('entry-2');
+      expect(repo.save).toHaveBeenCalledTimes(2);
     });
 
     it('should trigger vector indexing asynchronously', async () => {
@@ -307,6 +313,27 @@ describe('EntryService', () => {
       expect(result).toEqual([]);
       expect(aiProvider.summarize).not.toHaveBeenCalled();
     });
+
+    it('should use cached summary when present without calling aiProvider.summarize', async () => {
+      const entry = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: 'Day 1 text', summary: 'Cached summary' });
+      repo.listByUser.mockResolvedValue([entry]);
+
+      const result = await service.getTimeline('user-1');
+
+      expect(result[0].preview).toBe('Cached summary');
+      expect(aiProvider.summarize).not.toHaveBeenCalled();
+    });
+
+    it('should fall back to text snippet if aiProvider.summarize throws', async () => {
+      const longText = 'A'.repeat(150);
+      const entry = makeEntry({ id: 'e-1', date: new Date('2026-09-01'), text: longText });
+      repo.listByUser.mockResolvedValue([entry]);
+      aiProvider.summarize.mockRejectedValue(new Error('Quota exhausted'));
+
+      const result = await service.getTimeline('user-1');
+
+      expect(result[0].preview).toBe(`${'A'.repeat(117)}...`);
+    });
   });
 
   // --- generateAndSaveSummary ---
@@ -405,6 +432,37 @@ describe('EntryService', () => {
       const updateCall = repo.update.mock.calls[0][2];
       expect(updateCall.attachments).toHaveLength(1);
       expect(updateCall.attachments![0].id).toBe('att-2');
+    });
+  });
+
+  describe('getEntry', () => {
+    it('should retrieve full entry by id for owner', async () => {
+      const entry = makeEntry({ id: 'entry-1', uid: 'user-1' });
+      repo.findById.mockResolvedValue(entry);
+
+      const result = await service.getEntry('user-1', 'entry-1');
+      expect(result).toBe(entry);
+      expect(repo.findById).toHaveBeenCalledWith('user-1', 'entry-1');
+    });
+
+    it('should throw NotFoundError if entry does not exist', async () => {
+      repo.findById.mockResolvedValue(null);
+
+      await expect(service.getEntry('user-1', 'entry-non-existent'))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError if entry belongs to another user', async () => {
+      const entry = makeEntry({ id: 'entry-1', uid: 'other-user' });
+      repo.findById.mockResolvedValue(entry);
+
+      await expect(service.getEntry('user-1', 'entry-1'))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw ValidationError if uid or entryId is empty', async () => {
+      await expect(service.getEntry('', 'entry-1')).rejects.toThrow(ValidationError);
+      await expect(service.getEntry('user-1', '')).rejects.toThrow(ValidationError);
     });
   });
 });

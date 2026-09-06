@@ -43,7 +43,12 @@ export class SemanticSearchService {
         const matchScore = Math.max(0, Math.min(100, Math.round(100 - (vr.distance * 50))));
 
         // Extract 2-3 key phrases based on the user's query
-        const semanticChips = await this.aiProvider.extractSemanticChips(query, vr.entry.text);
+        let semanticChips: string[] = [];
+        try {
+          semanticChips = await this.aiProvider.extractSemanticChips(query, vr.entry.text);
+        } catch {
+          semanticChips = [];
+        }
 
         return {
           entry: vr.entry,

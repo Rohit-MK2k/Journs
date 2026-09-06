@@ -26,7 +26,7 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.BACKEND_PORT || 8000;
   await app.listen(port);
   console.log(`Journ backend listening on port ${port}`);
 }

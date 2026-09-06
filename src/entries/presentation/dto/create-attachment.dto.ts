@@ -9,6 +9,14 @@ export class CreateAttachmentDto {
   url?: string;
 
   @IsOptional()
+  @IsString()
+  filePath?: string;
+
+  @IsOptional()
+  @IsString()
+  fileId?: string;
+
+  @IsOptional()
   @IsNumber()
   lat?: number;
 
