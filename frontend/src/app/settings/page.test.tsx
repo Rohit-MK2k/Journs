@@ -12,6 +12,14 @@ describe('Account & Settings Suite', () => {
     const darkBtn = screen.getByRole('button', { name: /Dark \(Charcoal\)/i });
     fireEvent.click(darkBtn);
     expect(darkBtn.className).toContain('bg-surface'); 
+    expect(localStorage.getItem('theme')).toBe('dark');
+    expect(document.documentElement.classList.contains('dark')).toBe(true);
+
+    const lightBtn = screen.getByRole('button', { name: /Light \(Warm Paper\)/i });
+    fireEvent.click(lightBtn);
+    expect(localStorage.getItem('theme')).toBe('light');
+    expect(document.documentElement.classList.contains('light')).toBe(true);
+    expect(document.documentElement.classList.contains('dark')).toBe(false);
     
     // Checkbox mapping to the custom toggle
     const toggleInput = screen.getByLabelText(/Include past entries/i) as HTMLInputElement;

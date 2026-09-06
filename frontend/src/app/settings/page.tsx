@@ -1,19 +1,79 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
-import { getAuth, signOut } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
 import { apiClient } from "@/lib/apiClient";
 
 export default function AccountSettings() {
+  const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [habitMemoryEnabled, setHabitMemoryEnabled] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const router = useRouter();
 
+  const applyTheme = (t: "light" | "dark" | "system") => {
+    document.documentElement.classList.remove("dark", "light");
+    if (t === "dark") document.documentElement.classList.add("dark");
+    if (t === "light") document.documentElement.classList.add("light");
+  };
+
+  useEffect(() => {
+    const auth = getAuth();
+    if (auth.currentUser) {
+      setUser(auth.currentUser);
+    }
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | "system" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      applyTheme(savedTheme);
+    }
+
+    const savedHabit = localStorage.getItem("habitMemoryEnabled");
+    if (savedHabit !== null) {
+      setHabitMemoryEnabled(savedHabit === "true");
+    }
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    applyTheme(newTheme);
+  };
+
+  const handleHabitToggle = async (enabled: boolean) => {
+    setHabitMemoryEnabled(enabled);
+    localStorage.setItem("habitMemoryEnabled", String(enabled));
+    try {
+      await apiClient('/api/account/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({ habitMemoryEnabled: enabled }),
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const isDeleteEnabled = deleteConfirmation === "DELETE";
+
+  const displayName = user?.displayName || user?.email?.split("@")[0] || "User";
+  const email = user?.email || "No email connected";
+  const initials = (displayName || "U")
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "U";
+  const isGoogle = user?.providerData?.some((p) => p.providerId === "google.com") ?? true;
 
   const handleLogout = async () => {
     try {
@@ -52,27 +112,37 @@ export default function AccountSettings() {
 
           <div className="flex flex-col gap-10 mt-8">
             
-            {/* Profile Card (Google Identity) */}
+            {/* Profile Card (Identity) */}
             <section className="flex flex-col gap-4">
             <h2 className="text-label-md uppercase tracking-wider text-tertiary font-medium">Profile</h2>
             <div className="bg-surface border border-border rounded-xl p-5 md:p-6 shadow-sm flex flex-col gap-5">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl font-medium">
-                  AC
-                </div>
+                {user?.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={displayName}
+                    className="w-16 h-16 rounded-full object-cover border border-border"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl font-medium">
+                    {initials}
+                  </div>
+                )}
                 <div>
-                  <div className="font-medium text-primary text-body-lg">Alex Chen</div>
-                  <div className="text-secondary text-body-md">alex.chen@gmail.com</div>
+                  <div className="font-medium text-primary text-body-lg">{displayName}</div>
+                  <div className="text-secondary text-body-md">{email}</div>
                 </div>
               </div>
               
               <div className="bg-subtle rounded-lg p-3 border border-border">
                 <div className="flex items-center gap-2 mb-1">
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z"/><path d="M12 22V2"/><path d="M22 12H2"/><path d="M12 2C14.5013 4.73835 15.9228 8.29203 16 12C15.9228 15.708 14.5013 19.2616 12 22C9.49872 19.2616 8.07725 15.708 8 12C8.07725 8.29203 9.49872 4.73835 12 2Z"/></svg>
-                  <span className="text-label-md font-medium text-primary">Signed in via Google OAuth</span>
+                  <span className="text-label-md font-medium text-primary">
+                    {isGoogle ? "Signed in via Google OAuth" : "Signed in via Firebase Auth"}
+                  </span>
                 </div>
                 <p className="text-caption-sm text-secondary leading-relaxed">
-                  Journ only accesses your basic profile (name, email, avatar). No Google Drive, Calendar, or contacts scopes are requested.
+                  Journ only accesses your basic profile (name, email, avatar). No external scopes are requested.
                 </p>
               </div>
             </div>
@@ -93,7 +163,7 @@ export default function AccountSettings() {
                 {(["light", "dark", "system"] as const).map((t) => (
                   <button
                     key={t}
-                    onClick={() => setTheme(t)}
+                    onClick={() => handleThemeChange(t)}
                     className={`flex-1 py-2 rounded-md text-label-md capitalize transition-colors ${
                       theme === t 
                         ? "bg-surface text-primary shadow-sm border border-border/50" 
@@ -121,7 +191,7 @@ export default function AccountSettings() {
                 
                 {/* Custom Toggle Switch */}
                 <button 
-                  onClick={() => setHabitMemoryEnabled(!habitMemoryEnabled)}
+                  onClick={() => handleHabitToggle(!habitMemoryEnabled)}
                   className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-tertiary/20 ${habitMemoryEnabled ? 'bg-primary' : 'bg-tertiary/40'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-surface transition-transform ${habitMemoryEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
@@ -131,7 +201,7 @@ export default function AccountSettings() {
               <div className="pt-4 border-t border-border">
                 <label className="flex items-center justify-between cursor-pointer group">
                   <span className="text-body-md text-primary font-medium group-hover:text-secondary transition-colors">Include past entries in AI companion reflections</span>
-                  <input type="checkbox" checked={habitMemoryEnabled} onChange={() => setHabitMemoryEnabled(!habitMemoryEnabled)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary bg-subtle" />
+                  <input type="checkbox" checked={habitMemoryEnabled} onChange={(e) => handleHabitToggle(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary bg-subtle" />
                 </label>
               </div>
             </div>
