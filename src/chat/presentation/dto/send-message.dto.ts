@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn, IsOptional } from 'class-validator';
 import { ChatMessageMode } from '../../domain/chat-message-mode';
 
 export class SendMessageDto {
@@ -7,6 +7,7 @@ export class SendMessageDto {
   message: string;
 
   @IsString()
+  @IsOptional()
   @IsIn(['text', 'voice'])
-  mode: ChatMessageMode;
+  mode?: ChatMessageMode = 'text';
 }

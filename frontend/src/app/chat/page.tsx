@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { apiClient } from "@/lib/apiClient";
 
-type ChatMode = "text" | "voice" | "edit";
+type ChatMode = "text" | "edit";
 
 type ChatMessage = { id: string; role: 'user' | 'assistant'; text: string; extractedDraft?: string };
 
@@ -16,6 +16,33 @@ export default function ChatCompanion() {
   const [isLoading, setIsLoading] = useState(false);
   const [draftContent, setDraftContent] = useState("");
   const [destination, setDestination] = useState<"append" | "new">("append");
+
+  useEffect(() => {
+    apiClient('/api/chat/session', { method: 'POST' }).catch(() => {});
+  }, []);
+
+  const handleConfirmDraft = async (textToSave: string, target: 'today' | 'new') => {
+    setMode("text");
+    try {
+      await apiClient('/api/chat/draft/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          draft: { text: textToSave, sourceContext: 'chat' },
+          target,
+        }),
+      });
+      setMessages(prev => prev.map(m => m.extractedDraft === textToSave ? { ...m, extractedDraft: undefined } : m));
+      setDraftContent("");
+    } catch (err) {
+      console.error("Failed to save draft", err);
+    }
+  };
+
+  const handleDiscardDraft = (textToDiscard: string) => {
+    setMessages(prev => prev.map(m => m.extractedDraft === textToDiscard ? { ...m, extractedDraft: undefined } : m));
+    setDraftContent("");
+    setMode("text");
+  };
 
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) return;
@@ -28,7 +55,7 @@ export default function ChatCompanion() {
     try {
       const res = await apiClient('/api/chat/message', {
         method: 'POST',
-        body: JSON.stringify({ message: userMsg.text })
+        body: JSON.stringify({ message: userMsg.text, mode: 'text' })
       });
       
       const contentType = res.headers.get('content-type') || '';
@@ -59,14 +86,15 @@ export default function ChatCompanion() {
                 try {
                   const data = JSON.parse(dataStr);
                   const reply = data.replyText || data.message;
-                  const draft = data.extractedDraft || data.draft;
+                  const rawDraft = data.extractedDraft || data.draft;
+                  const draftText = typeof rawDraft === 'string' ? rawDraft : rawDraft?.text || '';
                   if (reply) {
                     currentText += reply;
                     setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, text: currentText } : m));
                   }
-                  if (draft) {
-                    setDraftContent(draft);
-                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, extractedDraft: draft } : m));
+                  if (draftText) {
+                    setDraftContent(draftText);
+                    setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, extractedDraft: draftText } : m));
                   }
                 } catch (e) {}
               }
@@ -76,24 +104,30 @@ export default function ChatCompanion() {
       } else {
         const data = await res.json();
         const reply = data.replyText || data.message || '';
-        const draft = data.extractedDraft || data.draft;
+        const rawDraft = data.extractedDraft || data.draft;
+        const draftText = typeof rawDraft === 'string' ? rawDraft : rawDraft?.text || '';
         
         const assistantMsg: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
           text: reply,
-          extractedDraft: draft
+          extractedDraft: draftText || undefined
         };
         
-        if (draft) {
-          setDraftContent(draft);
+        if (draftText) {
+          setDraftContent(draftText);
         }
         
         setMessages(prev => [...prev, assistantMsg]);
       }
     } catch (error) {
-      // In a real app, handle error visibly
       console.error("Failed to send message", error);
+      const errorMsg: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        text: 'Sorry, I am having trouble connecting right now. Please try again.',
+      };
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -111,23 +145,7 @@ export default function ChatCompanion() {
                 Reflect
               </div>
               
-              {/* Dual Mode Switcher */}
-              <div className="flex items-center bg-subtle p-1 rounded-full border border-border">
-                <button 
-                  onClick={() => setMode("text")}
-                  className={`px-3 py-1 text-label-md rounded-full transition-colors ${mode === 'text' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
-                >
-                  ≡ Text
-                </button>
-                <button 
-                  onClick={() => setMode("voice")}
-                  className={`px-3 py-1 text-label-md rounded-full transition-colors flex items-center gap-1 ${mode === 'voice' ? 'bg-surface shadow-sm text-primary' : 'text-secondary hover:text-primary'}`}
-                >
-                  🎙 Voice
-                </button>
-              </div>
-              
-              <Link href="/" className="text-secondary hover:text-primary p-2">
+              <Link href="/" className="text-secondary hover:text-primary p-2" aria-label="Close reflection">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
               </Link>
             </header>
@@ -181,9 +199,6 @@ export default function ChatCompanion() {
 
           {/* Attachments Strip */}
           <div className="flex gap-2">
-            <div className="flex items-center gap-2 bg-subtle px-3 py-1.5 rounded-lg border border-border text-label-md text-primary">
-              ▶ Voice snippet (0:24)
-            </div>
             <button className="flex items-center gap-2 bg-canvas px-3 py-1.5 rounded-lg border border-dashed border-tertiary text-label-md text-tertiary hover:text-primary hover:border-border transition-colors">
               + Add photo
             </button>
@@ -211,10 +226,10 @@ export default function ChatCompanion() {
         {/* Action Bar */}
         <footer className="p-4 border-t border-border bg-canvas md:bg-surface">
           <div className="flex items-center justify-between mb-3">
-            <button className="text-red-500/70 hover:text-red-500 text-body-md font-medium transition-colors" onClick={() => setMode("text")}>
+            <button className="text-red-500/70 hover:text-red-500 text-body-md font-medium transition-colors" onClick={() => { setDraftContent(""); setMode("text"); }}>
               Discard Draft
             </button>
-            <button className="bg-primary text-canvas px-4 py-2 rounded-lg font-medium text-body-md hover:opacity-90 transition-opacity" onClick={() => setMode("text")}>
+            <button className="bg-primary text-canvas px-4 py-2 rounded-lg font-medium text-body-md hover:opacity-90 transition-opacity" onClick={() => handleConfirmDraft(draftContent, destination === "append" ? "today" : "new")}>
               {destination === "append" ? "Save to Today's Entry" : "Save as New Entry"}
             </button>
           </div>
@@ -224,58 +239,6 @@ export default function ChatCompanion() {
         </footer>
       </div>,
       true // hide main header
-    );
-  }
-
-  if (mode === "voice") {
-    return renderLayout(
-      <div className="flex flex-col flex-1 h-full animate-in fade-in duration-500">
-        <div className="flex-1 flex flex-col items-center justify-center relative p-8 text-center">
-          
-          {/* Concentric Audio Pulse Rings */}
-          <div className="relative flex items-center justify-center mb-12">
-            <div className="absolute w-48 h-48 bg-blue-500/10 rounded-full animate-ping" style={{ animationDuration: '3s' }}></div>
-            <div className="absolute w-32 h-32 bg-blue-500/20 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
-            <div className="relative w-20 h-20 bg-surface border border-border shadow-md rounded-full flex items-center justify-center text-blue-500 z-10">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-            </div>
-          </div>
-
-          <h2 className="text-headline-md font-medium text-primary mb-2">Companion is listening...</h2>
-          <p className="text-body-md text-secondary">
-            Speak naturally • Journ transcribes reflections into journal notes in real-time
-          </p>
-
-          {/* Live Draft Indicator */}
-          <div className="w-full mt-12 bg-subtle/50 border border-border rounded-xl p-4 text-left animate-in slide-in-from-bottom-2 fade-in">
-            <div className="text-caption-sm text-tertiary font-medium mb-2 flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-              Syncing with Evening Reflections
-            </div>
-            <div className="text-primary text-body-md italic line-clamp-2">
-              "It's been a long day, I feel like I'm finally making progress on the architecture..."
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Control Dock */}
-        <footer className="p-6 border-t border-border bg-canvas/80 md:bg-surface/80 backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            <button className="w-12 h-12 flex items-center justify-center rounded-full bg-subtle text-secondary hover:text-primary transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v4m-2 0h4"/></svg>
-            </button>
-            <div className="px-6 py-3 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium text-body-md animate-pulse">
-              Speaking
-            </div>
-            <button onClick={() => setMode("text")} className="w-12 h-12 flex items-center justify-center rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
-          </div>
-          <div className="mt-4 text-center text-caption-sm text-tertiary flex items-center justify-center gap-1.5">
-            <span>🔒</span> End-to-end encrypted voice session • Real-time ADK audio channel
-          </div>
-        </footer>
-      </div>
     );
   }
 
@@ -312,10 +275,16 @@ export default function ChatCompanion() {
                     {msg.extractedDraft}
                   </p>
                   <div className="flex flex-col gap-2 mt-5">
-                    <button className="w-full bg-primary text-canvas py-2 rounded-lg text-body-md font-medium hover:opacity-90 transition-opacity">
+                    <button 
+                      onClick={() => handleConfirmDraft(msg.extractedDraft!, 'today')}
+                      className="w-full bg-primary text-canvas py-2 rounded-lg text-body-md font-medium hover:opacity-90 transition-opacity"
+                    >
                       Save to Today's Entry
                     </button>
-                    <button className="w-full bg-subtle text-primary border border-border py-2 rounded-lg text-body-md font-medium hover:bg-border transition-colors">
+                    <button 
+                      onClick={() => handleConfirmDraft(msg.extractedDraft!, 'new')}
+                      className="w-full bg-subtle text-primary border border-border py-2 rounded-lg text-body-md font-medium hover:bg-border transition-colors"
+                    >
                       Save as New Separate Entry
                     </button>
                     <div className="flex gap-2 mt-1">
@@ -328,7 +297,10 @@ export default function ChatCompanion() {
                       >
                         Edit Text
                       </button>
-                      <button className="flex-1 text-red-500/70 hover:text-red-500 text-body-md font-medium py-1.5 transition-colors">
+                      <button 
+                        onClick={() => handleDiscardDraft(msg.extractedDraft!)}
+                        className="flex-1 text-red-500/70 hover:text-red-500 text-body-md font-medium py-1.5 transition-colors"
+                      >
                         Discard
                       </button>
                     </div>
@@ -358,15 +330,14 @@ export default function ChatCompanion() {
             placeholder="Reflect with Journ..."
             className="flex-1 bg-transparent outline-none text-body-md text-primary placeholder:text-tertiary disabled:opacity-50"
           />
-          {!inputText ? (
-            <button onClick={() => setMode("voice")} disabled={isLoading} className="w-8 h-8 flex items-center justify-center text-secondary hover:text-primary transition-colors disabled:opacity-50">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
-            </button>
-          ) : (
-            <button onClick={handleSend} disabled={isLoading} className="w-8 h-8 flex items-center justify-center bg-primary text-canvas rounded-full transition-transform hover:scale-105 disabled:opacity-50 disabled:scale-100">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-            </button>
-          )}
+          <button 
+            onClick={handleSend} 
+            disabled={isLoading || !inputText.trim()} 
+            aria-label="Send message"
+            className="w-8 h-8 flex items-center justify-center bg-primary text-canvas rounded-full transition-transform hover:scale-105 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
         </div>
       </div>
     </>

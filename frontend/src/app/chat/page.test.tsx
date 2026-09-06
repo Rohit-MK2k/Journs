@@ -6,14 +6,14 @@ jest.mock('next/link', () => {
 });
 
 describe('AI Companion Suite', () => {
-  it('T3.1 Mode Toggling', () => {
+  it('T3.1 Voice Mode is not present in UI', () => {
     render(<ChatCompanion />);
     expect(screen.getByPlaceholderText('Reflect with Journ...')).toBeInTheDocument();
     
-    // Switch to voice
-    const voiceBtn = screen.getByRole('button', { name: /Voice/i });
-    fireEvent.click(voiceBtn);
-    expect(screen.getByText('Companion is listening...')).toBeInTheDocument();
+    // Voice mode buttons or references should not be present in the UI
+    expect(screen.queryByRole('button', { name: /Voice/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Voice/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Companion is listening...')).not.toBeInTheDocument();
   });
 
   it('T3.2 Draft Editing Transition & T3.3 Draft Destination Logic', async () => {
