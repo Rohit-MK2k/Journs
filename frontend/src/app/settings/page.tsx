@@ -7,10 +7,27 @@ import AuthGuard from "@/components/AuthGuard";
 import { getAuth, onAuthStateChanged, signOut, User } from "firebase/auth";
 import { apiClient } from "@/lib/apiClient";
 
+interface WritingHabitsData {
+  structure: string;
+  depth: string;
+  timing: string;
+  vocabulary: string;
+}
+
+interface HabitMemoryData {
+  topics: string[];
+  frequency: string;
+  tone: string;
+  writingHabits?: WritingHabitsData;
+  updatedAt: string | null;
+}
+
 export default function AccountSettings() {
   const [user, setUser] = useState<User | null>(null);
   const [theme, setTheme] = useState<"light" | "dark" | "system">("system");
   const [habitMemoryEnabled, setHabitMemoryEnabled] = useState(true);
+  const [habitMemory, setHabitMemory] = useState<HabitMemoryData | null>(null);
+  const [loadingHabit, setLoadingHabit] = useState(true);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const router = useRouter();
 
@@ -18,6 +35,21 @@ export default function AccountSettings() {
     document.documentElement.classList.remove("dark", "light");
     if (t === "dark") document.documentElement.classList.add("dark");
     if (t === "light") document.documentElement.classList.add("light");
+  };
+
+  const fetchHabitMemory = async () => {
+    setLoadingHabit(true);
+    try {
+      const res = await apiClient('/api/habit-memory');
+      if (res.ok) {
+        const data = await res.json();
+        setHabitMemory(data);
+      }
+    } catch (err) {
+      console.error('Failed to load habit memory:', err);
+    } finally {
+      setLoadingHabit(false);
+    }
   };
 
   useEffect(() => {
@@ -42,6 +74,12 @@ export default function AccountSettings() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchHabitMemory();
+    }
+  }, [user]);
 
   const handleThemeChange = (newTheme: "light" | "dark" | "system") => {
     setTheme(newTheme);
@@ -122,6 +160,7 @@ export default function AccountSettings() {
                     src={user.photoURL}
                     alt={displayName}
                     className="w-16 h-16 rounded-full object-cover border border-border"
+                    referrerPolicy="no-referrer"
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl font-medium">
@@ -203,6 +242,97 @@ export default function AccountSettings() {
                   <span className="text-body-md text-primary font-medium group-hover:text-secondary transition-colors">Include past entries in AI companion reflections</span>
                   <input type="checkbox" checked={habitMemoryEnabled} onChange={(e) => handleHabitToggle(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary bg-subtle" />
                 </label>
+              </div>
+
+              {/* Habit Memory Inspection Area (Read-Only) */}
+              <div className="pt-4 border-t border-border flex flex-col gap-3" data-testid="habit-memory-view">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-caption-sm font-semibold uppercase tracking-wider text-tertiary">Current Habit Profile</span>
+                    <button 
+                      onClick={fetchHabitMemory} 
+                      disabled={loadingHabit}
+                      title="Refresh habit memory" 
+                      aria-label="Refresh habit memory"
+                      className="text-tertiary hover:text-primary transition-colors disabled:opacity-50 p-0.5"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loadingHabit ? 'animate-spin' : ''}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+                    </button>
+                  </div>
+                  {habitMemory?.updatedAt ? (
+                    <span className="text-caption-sm text-tertiary">
+                      Last updated {new Date(habitMemory.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  ) : (
+                    <span className="text-caption-sm text-tertiary">Not yet analyzed</span>
+                  )}
+                </div>
+
+                {loadingHabit ? (
+                  <div className="py-4 text-caption-sm text-tertiary text-center animate-pulse">
+                    Loading habit memory...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-subtle/60 border border-border/80 rounded-lg p-3.5 text-body-md">
+                    <div>
+                      <span className="text-caption-sm text-tertiary block mb-1">Detected Tone</span>
+                      <span className="font-medium text-primary capitalize" data-testid="habit-tone">
+                        {habitMemory?.tone || 'Neutral'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-caption-sm text-tertiary block mb-1">Journaling Cadence</span>
+                      <span className="font-medium text-primary capitalize" data-testid="habit-frequency">
+                        {habitMemory?.frequency || 'None yet'}
+                      </span>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <span className="text-caption-sm text-tertiary block mb-1.5">Recurring Topics</span>
+                      {habitMemory?.topics && habitMemory.topics.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5" data-testid="habit-topics">
+                          {habitMemory.topics.map((topic, i) => (
+                            <span key={i} className="px-2.5 py-0.5 rounded-full text-caption-sm bg-surface border border-border text-secondary font-medium">
+                              {topic}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-caption-sm text-tertiary italic">No recurring topics detected yet. Topics are analyzed after 2 AM.</span>
+                      )}
+                    </div>
+
+                    {/* Writing Style & Habits 2x2 Grid */}
+                    <div className="sm:col-span-2 pt-3 border-t border-border/60">
+                      <span className="text-caption-sm text-tertiary font-semibold uppercase tracking-wider block mb-2">Writing Style & Routine</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="bg-surface/80 border border-border/60 rounded-md p-2.5">
+                          <span className="text-[11px] text-tertiary block mb-0.5">Formatting Structure</span>
+                          <span className="font-medium text-primary text-label-md" data-testid="habit-structure">
+                            {habitMemory?.writingHabits?.structure || 'Free-flowing paragraphs'}
+                          </span>
+                        </div>
+                        <div className="bg-surface/80 border border-border/60 rounded-md p-2.5">
+                          <span className="text-[11px] text-tertiary block mb-0.5">Typical Depth & Length</span>
+                          <span className="font-medium text-primary text-label-md" data-testid="habit-depth">
+                            {habitMemory?.writingHabits?.depth || 'Standard reflections'}
+                          </span>
+                        </div>
+                        <div className="bg-surface/80 border border-border/60 rounded-md p-2.5">
+                          <span className="text-[11px] text-tertiary block mb-0.5">Routine Timing</span>
+                          <span className="font-medium text-primary text-label-md" data-testid="habit-timing">
+                            {habitMemory?.writingHabits?.timing || 'Flexible'}
+                          </span>
+                        </div>
+                        <div className="bg-surface/80 border border-border/60 rounded-md p-2.5">
+                          <span className="text-[11px] text-tertiary block mb-0.5">Style & Vocabulary</span>
+                          <span className="font-medium text-primary text-label-md" data-testid="habit-vocabulary">
+                            {habitMemory?.writingHabits?.vocabulary || 'Natural & conversational'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </section>

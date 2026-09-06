@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:frontend": "npm run test --prefix frontend",
-    "reindex": "ts-node scripts/reindex-entries.ts"
+    "reindex": "ts-node scripts/reindex-entries.ts",
+    "habit:generate": "ts-node scripts/force-habit-generation.ts"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

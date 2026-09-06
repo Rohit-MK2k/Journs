@@ -46,4 +46,36 @@ describe('Account & Settings Suite', () => {
     fireEvent.change(deleteInput, { target: { value: 'DELETEd' } });
     expect(deleteBtn).toBeDisabled();
   });
+
+  it('T5.4 Habit Memory Display Area renders read-only memory profile with writing habits', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => null },
+      json: async () => ({
+        uid: 'mock-user',
+        topics: ['Engineering', 'Mindfulness'],
+        frequency: 'daily',
+        tone: 'reflective',
+        writingHabits: {
+          structure: 'Bulleted thoughts',
+          depth: 'Concise (~150 words)',
+          timing: 'Late night',
+          vocabulary: 'Casual and expressive',
+        },
+        updatedAt: '2026-09-06T10:00:00.000Z',
+      }),
+    });
+
+    render(<AccountSettings />);
+
+    expect(await screen.findByText('Current Habit Profile')).toBeInTheDocument();
+    expect(await screen.findByText('Engineering')).toBeInTheDocument();
+    expect(screen.getByText('Mindfulness')).toBeInTheDocument();
+    expect(screen.getByTestId('habit-tone')).toHaveTextContent('reflective');
+    expect(screen.getByTestId('habit-frequency')).toHaveTextContent('daily');
+    expect(screen.getByTestId('habit-structure')).toHaveTextContent('Bulleted thoughts');
+    expect(screen.getByTestId('habit-depth')).toHaveTextContent('Concise (~150 words)');
+    expect(screen.getByTestId('habit-timing')).toHaveTextContent('Late night');
+    expect(screen.getByTestId('habit-vocabulary')).toHaveTextContent('Casual and expressive');
+  });
 });

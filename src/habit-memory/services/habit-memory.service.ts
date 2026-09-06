@@ -20,6 +20,16 @@ export class HabitMemoryService {
   ) {}
 
   /**
+   * Retrieve the current persisted habit memory for a user.
+   */
+  async getMemory(uid: string): Promise<HabitMemory | null> {
+    if (!uid || !uid.trim()) {
+      throw new ValidationError('uid must not be empty');
+    }
+    return this.habitStore.get(uid.trim());
+  }
+
+  /**
    * Refresh habit memory for a user by analyzing their recent journal entries.
    *
    * Looks back 30 days. If no recent entries exist, returns the existing memory
@@ -55,6 +65,7 @@ export class HabitMemoryService {
       topics: derived.topics,
       frequency: derived.frequency,
       tone: derived.tone,
+      writingHabits: derived.writingHabits,
       updatedAt: new Date(),
     };
 

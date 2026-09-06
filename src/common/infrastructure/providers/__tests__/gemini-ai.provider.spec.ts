@@ -17,11 +17,19 @@ describe('GeminiAIProvider', () => {
     jest.clearAllMocks();
   });
 
-  it('should summarize text', async () => {
+  it('should summarize text with >20 words', async () => {
     mockGenerateContent.mockResolvedValueOnce({ text: 'summary' });
-    const result = await provider.summarize('long text');
+    const longJournal = 'Today was a wonderful morning where I walked through the park, watched the sunrise, and reflected deeply on my personal growth and ongoing creative aspirations.';
+    const result = await provider.summarize(longJournal);
     expect(result).toBe('summary');
     expect(mockGenerateContent).toHaveBeenCalled();
+  });
+
+  it('should skip summarization when text has 20 or fewer words', async () => {
+    const shortText = 'Only a few words here today.';
+    const result = await provider.summarize(shortText);
+    expect(result).toBe('');
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   it('should generate chat response', async () => {
@@ -37,19 +45,44 @@ describe('GeminiAIProvider', () => {
     expect(result.text).toBe('extracted');
   });
 
-  it('should derive habit memory', async () => {
-    mockGenerateContent.mockResolvedValueOnce({ text: '{"topics":["a"],"frequency":"daily","tone":"sad"}' });
+  it('should derive habit memory with writing habits', async () => {
+    mockGenerateContent.mockResolvedValueOnce({
+      text: JSON.stringify({
+        topics: ['a'],
+        frequency: 'daily',
+        tone: 'sad',
+        writingHabits: {
+          structure: 'bullet points',
+          depth: 'concise',
+          timing: 'late night',
+          vocabulary: 'casual',
+        },
+      }),
+    });
     const result = await provider.deriveHabitMemory([{ text: 'entry 1' } as any]);
     expect(result.topics).toEqual(['a']);
     expect(result.frequency).toBe('daily');
     expect(result.tone).toBe('sad');
+    expect(result.writingHabits).toEqual({
+      structure: 'bullet points',
+      depth: 'concise',
+      timing: 'late night',
+      vocabulary: 'casual',
+    });
   });
 
-  it('should generate summary', async () => {
+  it('should generate summary for valid text and skip code', async () => {
     mockGenerateContent.mockResolvedValueOnce({ text: 'A short summary.' });
-    const res = await provider.generateSummary('Long entry text...');
+    const longJournal = 'Today was a wonderful morning where I walked through the park, watched the sunrise, and reflected deeply on my personal growth and ongoing creative aspirations.';
+    const res = await provider.generateSummary(longJournal);
     expect(res).toBe('A short summary.');
     expect(mockGenerateContent).toHaveBeenCalled();
+
+    mockGenerateContent.mockClear();
+    const codeSnippet = '```typescript\nimport React from "react";\nconst x = 1;\n```';
+    const codeRes = await provider.generateSummary(codeSnippet);
+    expect(codeRes).toBe('');
+    expect(mockGenerateContent).not.toHaveBeenCalled();
   });
 
   it('should process chat turn', async () => {

@@ -170,4 +170,28 @@ describe('HabitMemoryService', () => {
       expect(habitStore.save).toHaveBeenCalledWith('user-1', result);
     });
   });
+
+  describe('getMemory', () => {
+    it('should throw ValidationError if uid is empty', async () => {
+      await expect(service.getMemory('')).rejects.toThrow(ValidationError);
+      await expect(service.getMemory('   ')).rejects.toThrow(ValidationError);
+    });
+
+    it('should return habit memory from store', async () => {
+      const memory = makeHabitMemory({ uid: 'user-1' });
+      habitStore.get.mockResolvedValue(memory);
+
+      const result = await service.getMemory('user-1');
+      expect(habitStore.get).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual(memory);
+    });
+
+    it('should return null if store has no memory for user', async () => {
+      habitStore.get.mockResolvedValue(null);
+
+      const result = await service.getMemory('user-2');
+      expect(habitStore.get).toHaveBeenCalledWith('user-2');
+      expect(result).toBeNull();
+    });
+  });
 });

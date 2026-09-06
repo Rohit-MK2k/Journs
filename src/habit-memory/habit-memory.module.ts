@@ -7,9 +7,11 @@ import { EntryRepository } from '../entries/interfaces/entry-repository.interfac
 import { HabitMemoryStore } from './interfaces/habit-memory-store.interface';
 import { AIProvider } from '../common/interfaces/ai-provider.interface';
 import { EntriesModule } from '../entries/entries.module';
+import { HabitMemoryController } from './presentation/controllers/habit-memory.controller';
 
 @Module({
   imports: [EntriesModule, ScheduleModule.forRoot()],
+  controllers: [HabitMemoryController],
   providers: [
     {
       provide: 'HabitMemoryStore',
