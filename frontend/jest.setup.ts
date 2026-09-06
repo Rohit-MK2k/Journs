@@ -15,6 +15,7 @@ jest.mock('firebase/auth', () => {
     signInWithPopup: jest.fn(),
     signOut: jest.fn(),
     signInWithRedirect: jest.fn(),
+    getRedirectResult: jest.fn().mockResolvedValue(null),
     onAuthStateChanged: onAuthStateChangedMock,
   };
 });

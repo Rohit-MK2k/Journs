@@ -1,32 +1,67 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithRedirect } from "firebase/auth";
+import { signInWithPopup, signInWithRedirect, getRedirectResult } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 
 export default function LoginPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
+    // 1. Listen for auth state changes
     if (typeof auth?.onAuthStateChanged === 'function') {
       const unsubscribe = auth.onAuthStateChanged((user) => {
         if (user) {
           router?.push?.("/");
         }
       });
+
+      // 2. Resolve any pending redirect result if user previously initiated redirect
+      if (typeof getRedirectResult === 'function') {
+        getRedirectResult(auth)
+          .then((credential) => {
+            if (credential?.user) {
+              router?.push?.("/");
+            }
+          })
+          .catch((error: any) => {
+            console.error("Redirect auth error:", error);
+            if (error?.code !== 'auth/popup-closed-by-user') {
+              setErrorMessage(error?.message || "Failed to complete sign-in");
+            }
+          });
+      }
+
       return () => unsubscribe();
     }
   }, [router]);
 
   const handleLogin = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
-      await signInWithRedirect(auth, googleProvider);
-      // Redirect happens automatically, no need to router.push("/") here
-    } catch (error) {
+      // Primary authentication mode: Popup (reliable on localhost and SPAs)
+      const credential = await signInWithPopup(auth, googleProvider);
+      if (credential?.user) {
+        router.push("/");
+      }
+    } catch (error: any) {
       console.error("Login failed:", error);
+      // Fallback to redirect if popup was explicitly blocked by the browser
+      if (error?.code === "auth/popup-blocked") {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectError: any) {
+          console.error("Fallback redirect error:", redirectError);
+          setErrorMessage(redirectError?.message || "Sign-in failed");
+        }
+      } else if (error?.code !== "auth/popup-closed-by-user") {
+        setErrorMessage(error?.message || "Failed to authenticate with Google");
+      }
       setLoading(false);
     }
   };
@@ -48,6 +83,14 @@ export default function LoginPage() {
         <p className="text-secondary text-body-md mb-8">
           A quiet space for your thoughts.
         </p>
+
+        {/* Error Alert */}
+        {errorMessage && (
+          <div className="w-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-lg p-3 text-red-600 dark:text-red-400 text-caption-sm mb-6 text-left">
+            <span className="font-semibold block mb-0.5">Authentication Error</span>
+            {errorMessage}
+          </div>
+        )}
         
         {/* OAuth Action Button */}
         <button 
