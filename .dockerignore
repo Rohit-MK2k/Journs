@@ -1,0 +1,12 @@
+node_modules
+dist
+frontend
+.git
+.github
+.env
+.env.local
+service-account.json
+Documentation
+scripts
+coverage
+*.log

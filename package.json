@@ -18,7 +18,9 @@
     "test:coverage": "jest --coverage",
     "test:frontend": "npm run test --prefix frontend",
     "reindex": "ts-node scripts/reindex-entries.ts",
-    "habit:generate": "ts-node scripts/force-habit-generation.ts"
+    "habit:generate": "ts-node scripts/force-habit-generation.ts",
+    "deploy": "bash scripts/deploy.sh",
+    "deploy:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
