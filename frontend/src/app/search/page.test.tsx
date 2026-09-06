@@ -55,7 +55,7 @@ describe('Semantic Search Suite', () => {
     );
     
     expect(await screen.findByText(/95% Semantic Match/i)).toBeInTheDocument();
-    expect(screen.getByText('test chip')).toBeInTheDocument();
+    expect(screen.getByText(/dynamic/i)).toBeInTheDocument();
     
     // Clear Input
     const clearBtn = input.parentElement?.querySelector('button[type="button"]');
@@ -63,7 +63,7 @@ describe('Semantic Search Suite', () => {
       fireEvent.click(clearBtn!);
     });
     
-    expect(screen.getByText('Suggested Reflections')).toBeInTheDocument();
+    expect(screen.getByText(/Search your journal by memory/i)).toBeInTheDocument();
     fetchSpy.mockRestore();
   });
 

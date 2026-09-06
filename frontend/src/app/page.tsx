@@ -89,6 +89,16 @@ export default function MainDashboard() {
   }, []);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const entryId = params.get('entry');
+      if (entryId) {
+        handleSelectEntry({ id: entryId });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -203,12 +213,30 @@ export default function MainDashboard() {
         method: 'POST',
         body: JSON.stringify({ 
           text: savedText || 'Untitled Entry',
-          attachments: attachments.map(a => ({
-            type: a.type,
-            url: a.url,
-            filePath: a.filePath,
-            fileId: a.fileId,
-          }))
+          attachments: attachments.map(a => {
+            if (a.type === 'location') {
+              return {
+                type: 'location',
+                lat: a.lat ?? 0,
+                lng: a.lng ?? 0,
+                locationLabel: a.locationLabel || '',
+              };
+            }
+            if (a.type === 'voice') {
+              return {
+                type: 'voice',
+                url: a.url || '',
+                filePath: a.filePath || '',
+                fileId: a.fileId || '',
+              };
+            }
+            return {
+              type: 'photo',
+              url: a.url || '',
+              filePath: a.filePath || '',
+              fileId: a.fileId || '',
+            };
+          })
         })
       });
       const data = await res.json();
@@ -545,8 +573,13 @@ export default function MainDashboard() {
         {/* Navigation / Header */}
         <header className="flex items-center justify-between py-6 mb-4">
           <button 
-            onClick={() => setExpandedEntry(null)}
-            className="text-secondary hover:text-primary transition-colors text-body-md flex items-center gap-2"
+            onClick={() => {
+              setExpandedEntry(null);
+              if (typeof window !== 'undefined' && window.location.search.includes('entry=')) {
+                window.history.replaceState({}, '', '/');
+              }
+            }}
+            className="text-secondary hover:text-primary transition-colors text-body-md flex items-center gap-2 cursor-pointer"
           >
             ← Timeline
           </button>

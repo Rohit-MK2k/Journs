@@ -2,7 +2,10 @@ import { getAuth } from 'firebase/auth';
 
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
   const auth = getAuth();
-  const user = auth.currentUser;
+  if (typeof auth?.authStateReady === 'function') {
+    await auth.authStateReady();
+  }
+  const user = auth?.currentUser;
   
   if (!user) {
     throw new Error("Unauthorized: No user logged in");

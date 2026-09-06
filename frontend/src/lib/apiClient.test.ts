@@ -45,4 +45,23 @@ describe('Suite 6: API Client & Authorization', () => {
     await expect(apiClient('/api/test')).rejects.toThrow('Unauthorized: No user logged in');
     expect(global.fetch).not.toHaveBeenCalled();
   });
+
+  it('T6.3 Auth Readiness: Waits for authStateReady before evaluating user', async () => {
+    const authStateReadyMock = jest.fn().mockResolvedValue(undefined);
+    const { getAuth } = require('firebase/auth');
+    getAuth.mockImplementationOnce(() => ({
+      authStateReady: authStateReadyMock,
+      currentUser: {
+        getIdToken: jest.fn().mockResolvedValue('ready-token'),
+      },
+    }));
+
+    await apiClient('/api/test');
+    expect(authStateReadyMock).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith('/api/test', expect.objectContaining({
+      headers: expect.objectContaining({
+        'Authorization': 'Bearer ready-token',
+      }),
+    }));
+  });
 });
