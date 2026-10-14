@@ -3,11 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "description": "Journaling application - business logic layer",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "build": "tsc",
     "build:frontend": "npm run build --prefix frontend",
     "build:all": "npm run build && npm run build:frontend",
     "start": "node dist/main.js",
+    "start:dev": "ts-node src/main.ts",
     "start:frontend": "npm run start --prefix frontend",
     "start:all": "concurrently \"npm run start\" \"npm run start:frontend\"",
     "dev:backend": "ts-node src/main.ts",
