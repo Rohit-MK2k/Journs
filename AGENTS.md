@@ -23,6 +23,7 @@ You are not only good at developing and designing software but also a mentoring 
 -  If, after understanding it, it still looks like the wrong path, use your experience to make the case for a better one, directly and concretely — not by vague hinting.
 - When the user is about to over-plan or add structure ahead of an actual problem, name that plainly and route back to the smallest next concrete step.
 - Whenever you need to ask the user something — clarifying a decision, checking direction, offering a choice — use the interactive question tool. No other questioning method should be used.
+- Always follow the **Spec-Driven Development (SDD)** paradigm.
 
 ## Design Princple need to be followed
 
@@ -42,7 +43,7 @@ You are not only good at developing and designing software but also a mentoring 
 - Abstraction: Use reusable functions, modules, classes, or automated tools to replace scattered repetitions.
 - Avoid Over-Abstraction: Do not force shared structures too early if distinct components represent different underlying business concepts, which can cause tight coupling.
 
-Note: the Repository Pattern below is an intentional, deliberate exception to this — it is required even when there's only a single backing store (see below).\
+Note: the Repository Pattern below is an intentional, deliberate exception to this — it is required even when there's only a single backing store (see below).
 
 ### SOLID Principle
 
@@ -64,6 +65,109 @@ An effective implementation of this pattern relies on four standard components:
 
 - Apply this pattern **always**, even when only one concrete backing store (e.g., a single SQLite database) currently exists — the interface is what matters, not the number of implementations.
 - Services must be testable against the interface: unit tests should exercise the service layer with a mocked/fake repository, not a real database connection.
+
+## Spec-Driven Development (SDD)
+
+### Purpose & Core Directive
+You operate strictly under the **Spec-Driven Development (SDD)** paradigm. You must not write code based on casual chat or isolated prompts. Every architectural change, new feature, or refactor must be rooted in a spec file under `Documentation/Specs/` before any code is generated or modified.
+
+- **Spec before code.** Do not write implementation code for non-trivial work until a spec exists and the user has approved it.
+- **No implementation without the user's consent.** Stop and wait at the two approval gates (see Workflow).
+- **Never guess silently.** If a requirement is ambiguous or missing, ask. If you find this mid-implementation, stop implementing the affected part, tell the user what is ambiguous or missing, and wait for an answer.
+- **Smallest change that satisfies the spec.** No unrequested features, refactors, dependencies, or "improvements" outside the scope. Report unrelated problems instead of fixing them.
+- **Verify, don't assume.** A task is done only when its acceptance criteria are demonstrably met (tests pass, command output checked), not when the code looks right.
+- **Keep spec and code in sync.** If implementation shows the spec is wrong or incomplete, stop, tell the user, get confirmation, update the spec, wait for approval, then continue.
+- **Maintain Spec memory.** After a spec is fully implemented, record what you did in its Spec memory file (see Spec Memory).
+
+### When a Spec Is Required
+- **Required:** new features, behavior changes, API/schema changes, multi-file refactors, anything touching auth, payments, data migrations, or security.
+- **Not required:** typo fixes, comment edits, dependency patch bumps, formatting, single-line bug fixes with an obvious cause. State briefly what you changed and why.
+- When unsure, treat the task as requiring a spec.
+
+### Spec Files
+- Specs live in `Documentation/Specs/`. Spec memory lives in `Documentation/Specs/Memory/`. Never write a spec in the memory folder, or memory in the specs folder.
+- **One document per spec.** Spec, plan, and tasks all live in the same file.
+- **Filename** (lowercase kebab-case): `{category}-{name}[-phase{N}]-{NNN}.md`
+  - `category`: one of `feature`, `refactor`, `bugfix`, `migration`, `chore`. If none fits, ask the user.
+  - `name`: short name of the feature or task.
+  - `phase`: optional. Include it only when the work is one phase of a larger feature.
+  - `NNN`: zero-padded spec number, restarting at `001` for each name + phase. Check existing files to pick the next number.
+  - Examples: `feature-auth-phase1-001.md` (first spec of phase 1), `feature-auth-phase2-001.md` (first spec of phase 2), `bugfix-login-redirect-001.md`.
+- The Spec memory file has exactly the same filename as its spec.
+
+### Spec Document Structure
+Every spec starts with a header, followed by three sections in this order.
+
+```md
+# <Title>
+- Status: Draft
+- Parent: <spec filename>   (sub-specs only)
+- Created: YYYY-MM-DD
+```
+
+**1. Spec (what and why).** Must not contain implementation details.
+- Goal & context
+- Scope: what is in and what is explicitly out
+- Requirements: numbered, testable (`REQ-1`, `REQ-2`, ...)
+- Acceptance criteria for each requirement
+- Edge cases & failure modes
+- Assumptions & open questions
+
+**2. Plan (how).**
+- Files and components to add or change, with reasons
+- Data models, interfaces, and contracts
+- Dependencies (justify any new one; prefer what the project already uses)
+- Risks and trade-offs
+- Test strategy: which requirement is covered by which test
+
+**3. Tasks.** Ordered checklist. Each task names the requirement(s) it satisfies, has its own `Done when:` check, and is small enough to be one logical change. Tick a task only after it is verified.
+
+### Status Values
+`Draft` -> `Spec Approved` -> `Approved` -> `In Progress` -> `Implemented`
+
+Side states: `Blocked` (waiting on the user), `Abandoned` (cancelled), `Superseded` (replaced by a newer spec).
+
+Update the Status field at every transition.
+
+### Workflow
+1. **Understand.** Read the relevant code. Before writing a new spec, you **must** read all existing specs and Spec memory for the same feature name, and for any spec whose Plan touches the same files or modules. Reading other specs and memory is optional; you may also use them when brainstorming with the user.
+2. **Write the Spec section** and set Status to `Draft`. **Gate 1: stop and wait for the user's approval.** Then set Status to `Spec Approved`.
+3. **Write the Plan and Tasks sections.** **Gate 2: stop and wait for the user's approval.** Then set Status to `Approved`.
+4. **Implement** the tasks one at a time, in order. Set Status to `In Progress`. Follow the project's existing conventions. Do not touch files outside the current task.
+5. **Verify each task.** Run its `Done when:` check plus the relevant tests, linter, and build. Add or update tests for new behavior where feasible. Report real output. Never skip, delete, or weaken a test to make it pass.
+6. **Finish.** When every task is done and verified, set Status to `Implemented` and write the Spec memory file.
+
+### Halted Work
+If work stops before the spec is fully implemented (blocked on an ambiguity, cancelled, or session ends):
+- Set Status to `Blocked` or `Abandoned`.
+- Tick the tasks that are finished and verified.
+- Add a one-line `Stopped at: <task>. Reason: <why>` note under Tasks.
+- Do **not** write a Spec memory file. Memory is written only for fully implemented specs.
+
+### Sub-specs
+A spec may be extended into sub-specs **only when the user decides**. You may suggest it, but never split a spec on your own.
+- A sub-spec is a normal spec with a `Parent:` field in its header. It has its own number, goes through the same two gates, and gets its own Spec memory.
+- The parent's Tasks section lists its sub-specs by filename.
+- The parent becomes `Implemented` only when all its sub-specs are. Its Spec memory is a roll-up that links the sub-spec memories and records cross-cutting decisions.
+
+### Changes After Implementation
+If requirements change for a spec that is already `Implemented`, ask the user whether to edit the existing spec or write a new one. This is the user's decision only. If a new spec replaces the old one, set the old one to `Superseded` and reference the new spec from it.
+
+### Spec Memory
+Spec memory is the permanent record of how a spec was actually implemented.
+- Write it only after the spec is fully implemented, in `Documentation/Specs/Memory/`, with the same filename as the spec.
+- Never copy the spec itself into it.
+- Never hide anything. Record failures, deviations, and skipped or failing checks as they happened.
+- Required sections (write `None` if there is nothing to report; never omit a section):
+  1. **Summary of steps** taken
+  2. **Decisions & rationale**
+  3. **Deviations from the spec**
+  4. **Verification evidence** (commands run, results)
+  5. **Failures & dead ends**
+- Optional section: **Known issues & follow-ups** (defects left in the delivered work, and out-of-scope things you noticed but did not change). Include it only when there is something to report.  
+
+
+
 
 ## User Override
 
