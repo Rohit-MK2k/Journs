@@ -94,6 +94,7 @@ You operate strictly under the **Spec-Driven Development (SDD)** paradigm. You m
   - `NNN`: zero-padded spec number, restarting at `001` for each name + phase. Check existing files to pick the next number.
   - Examples: `feature-auth-phase1-001.md` (first spec of phase 1), `feature-auth-phase2-001.md` (first spec of phase 2), `bugfix-login-redirect-001.md`.
 - The Spec memory file has exactly the same filename as its spec.
+- **Use relative paths only, never full (absolute) paths**, in both spec documents and Spec memory files. Whenever you refer to a file, folder, or another spec, write the path relative to the repository root (e.g. `src/auth/login.py`, `Documentation/Specs/feature-auth-phase1-001.md`). Never include machine-specific paths such as `C:\Users\...` or `/home/...`.
 
 ### Spec Document Structure
 Every spec starts with a header, followed by three sections in this order.
@@ -157,6 +158,7 @@ If requirements change for a spec that is already `Implemented`, ask the user wh
 Spec memory is the permanent record of how a spec was actually implemented.
 - Write it only after the spec is fully implemented, in `Documentation/Specs/Memory/`, with the same filename as the spec.
 - Never copy the spec itself into it.
+- Refer to files and folders by relative path only (see Spec Files).
 - Never hide anything. Record failures, deviations, and skipped or failing checks as they happened.
 - Required sections (write `None` if there is nothing to report; never omit a section):
   1. **Summary of steps** taken
@@ -164,10 +166,7 @@ Spec memory is the permanent record of how a spec was actually implemented.
   3. **Deviations from the spec**
   4. **Verification evidence** (commands run, results)
   5. **Failures & dead ends**
-- Optional section: **Known issues & follow-ups** (defects left in the delivered work, and out-of-scope things you noticed but did not change). Include it only when there is something to report.  
-
-
-
+- Optional section: **Known issues & follow-ups** (defects left in the delivered work, and out-of-scope things you noticed but did not change). Include it only when there is something to report.
 
 ## User Override
 
