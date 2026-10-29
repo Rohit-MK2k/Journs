@@ -1,0 +1,54 @@
+import { FirestoreEntryRepository } from '@journ/entries/infrastructure/repositories/firestore-entry.repository';
+import { Entry } from '@journ/entries/domain/entry';
+
+const getMock = jest.fn();
+const setMock = jest.fn();
+const whereMock = jest.fn().mockReturnThis();
+const orderByMock = jest.fn().mockReturnThis();
+
+export const collectionMock = jest.fn().mockReturnValue({
+  doc: jest.fn().mockReturnValue({
+    get: getMock,
+    set: setMock,
+  }),
+  where: whereMock,
+  orderBy: orderByMock,
+  get: getMock,
+});
+
+jest.mock('firebase-admin/firestore', () => ({
+  getFirestore: () => ({
+    collection: collectionMock,
+  }),
+}));
+
+describe('FirestoreEntryRepository', () => {
+  let repo: FirestoreEntryRepository;
+
+  beforeEach(() => {
+    repo = new FirestoreEntryRepository();
+    jest.clearAllMocks();
+  });
+
+  /**
+   * @testType Unit Test
+   * @target FirestoreEntryRepository.save
+   * @description Verifies that saving an entry targets the user-specific entries subcollection users/{uid}/entries.
+   */
+  it('should save entry to users subcollection', async () => {
+    const entry: Entry = {
+      id: 'e1',
+      uid: 'u1',
+      date: new Date('2026-09-02T00:00:00.000Z'),
+      text: 'text',
+      attachments: [],
+      vectorIndexed: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    await repo.save('u1', entry);
+    
+    expect(collectionMock).toHaveBeenCalledWith('users/u1/entries');
+  });
+});
