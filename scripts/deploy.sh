@@ -25,10 +25,10 @@ if [ -f .env ]; then
 fi
 
 # Load frontend .env.local if present
-if [ -f frontend/.env.local ]; then
-  echo "Loading client configuration from frontend/.env.local..."
+if [ -f apps/frontend/.env.local ]; then
+  echo "Loading client configuration from apps/frontend/.env.local..."
   set -a
-  source frontend/.env.local
+  source apps/frontend/.env.local
   set +a
 fi
 
@@ -85,7 +85,7 @@ echo "Step 2: Deploying Journ Frontend (Next.js) to Cloud Run..."
 echo "------------------------------------------------------------"
 
 gcloud run deploy journ-frontend \
-  --source ./frontend \
+  --source ./apps/frontend \
   --region="${GCP_REGION}" \
   --project="${GCP_PROJECT_ID}" \
   --platform=managed \

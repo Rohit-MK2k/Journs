@@ -33,7 +33,7 @@ function Import-EnvFile($FilePath) {
 }
 
 Import-EnvFile ".env"
-Import-EnvFile "frontend\.env.local"
+Import-EnvFile "apps\frontend\.env.local"
 
 # Determine GCP Project ID
 $GcpProjectId = $env:GCP_PROJECT_ID
@@ -92,7 +92,7 @@ Write-Host "Step 2: Deploying Journ Frontend (Next.js) to Cloud Run..." -Foregro
 Write-Host "------------------------------------------------------------" -ForegroundColor Cyan
 
 gcloud run deploy journ-frontend `
-  --source ./frontend `
+  --source ./apps/frontend `
   --region="$GcpRegion" `
   --project="$GcpProjectId" `
   --platform=managed `
