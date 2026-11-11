@@ -1,13 +1,11 @@
 import * as path from 'path';
 import * as readline from 'readline';
-import { initializeFirebaseAdmin } from '../src/common/infrastructure/firebase/firebase.config';
+import { initializeFirebaseAdmin, GeminiAIProvider } from '@journ/common';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
-import { HabitMemoryService } from '../src/habit-memory/services/habit-memory.service';
-import { FirestoreEntryRepository } from '../src/entries/infrastructure/repositories/firestore-entry.repository';
-import { FirestoreHabitMemoryStore } from '../src/habit-memory/infrastructure/repositories/firestore-habit-memory.store';
-import { GeminiAIProvider } from '../src/common/infrastructure/providers/gemini-ai.provider';
+import { HabitMemoryService, FirestoreHabitMemoryStore } from '@journ/habit-memory';
+import { FirestoreEntryRepository } from '@journ/entries';
 
 // Load environment variables
 if (typeof process.loadEnvFile === 'function') {

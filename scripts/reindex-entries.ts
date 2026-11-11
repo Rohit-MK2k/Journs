@@ -1,4 +1,4 @@
-import { initializeFirebaseAdmin } from '../src/common/infrastructure/firebase/firebase.config';
+import { initializeFirebaseAdmin } from '@journ/common';
 import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI } from '@google/genai';
 import * as path from 'path';
