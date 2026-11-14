@@ -27,9 +27,7 @@
     "test": "npm run test:packages && npm run test:backend",
     "test:all": "npm run test && npm run test:frontend",
     "reindex": "ts-node scripts/reindex-entries.ts",
-    "habit:generate": "ts-node scripts/force-habit-generation.ts",
-    "deploy": "bash scripts/deploy.sh",
-    "deploy:ps": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1"
+    "habit:generate": "ts-node scripts/force-habit-generation.ts"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
